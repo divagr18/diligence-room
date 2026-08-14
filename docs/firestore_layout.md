@@ -1,0 +1,96 @@
+# Firestore Layout (BUILD_PLAN D1-M5)
+
+Structured state lives in Firestore; the event log is the source of truth and
+findings are materialized projections of it (vision §7.3 Memory Implementation).
+This spec is the contract for `registry/store.py` (D2-M3) and the Day-3 memory
+partitions (D3-M3).
+
+## Collections
+
+### `deals/{deal_id}` — Deal document (`runtime.deal.Deal`)
+
+| Field | Type | Notes |
+|---|---|---|
+| deal_id | string | equals document id |
+| name | string | e.g. `Project Falcon` |
+| target | string | e.g. `Acme Robotics` |
+| deal_type | string | `Acquisition` |
+| regions | array\<string\> | e.g. `["US","EU"]` — drives region pinning (§7.8) |
+| expected_window_days | int | |
+| policy_profile_id | string | |
+| status | string | `active` / `closed` / `aborted` |
+| created_at | timestamp | |
+
+### `deals/{deal_id}/findings/{finding_id}` — Finding (`memory.findings.Finding`)
+
+| Field | Type | Notes |
+|---|---|---|
+| finding_id | string | equals document id |
+| deal_id | string | denormalized for index queries |
+| workstream | string | `legal` … `real_estate` |
+| title / summary | string | |
+| severity | string | informational/low/medium/high/critical |
+| confidence | number | [0, 1] |
+| status | string | candidate/validated/open/resolved/dismissed |
+| evidence | array\<map\> | each: `{verbatim_span, document_id, chunk_ref}` — required non-empty (§19.2) |
+| source_documents | array\<string\> | |
+| related_findings | array\<string\> | finding ids |
+| affected_entities | array\<string\> | |
+| questions | array\<string\> | |
+| owner | string | agent principal, e.g. `legal-agent@deal-falcon` |
+| audit_trace_id | string \| null | Cloud Trace linkage (Day 10) |
+| created_at / updated_at | timestamp | |
+
+### `deals/{deal_id}/events/{event_id}` — append-only event log (Day 2/3)
+
+Envelope `{event_id, deal_id, ts, seq, actor, type, payload_json}`. Writes are
+append-only; `seq` is monotonic per deal (D3-M4). Immutable by convention and
+later retention policy (§7.8).
+
+### `registry/agents/{agent_id}` — AgentManifest (`registry.models.AgentManifest`)
+
+| Field | Type | Notes |
+|---|---|---|
+| agent_id / name / version | string | current version |
+| capabilities | array\<string\> | |
+| owner / required_identity / policy_profile | string | |
+| allowed_tools | array\<string\> | |
+| supported_document_types | array\<string\> | |
+| external_communication | string | always `prohibited` |
+| approved | bool | |
+| eval_score | number \| null | |
+| deployment_status | string | `registered` / `deployed` / `deprecated` |
+| rollback_target | string \| null | version string |
+| known_limitations | string | |
+| last_security_review | timestamp \| null | |
+| created_at | timestamp | |
+
+### `registry/agents/{agent_id}/versions/{version}` — AgentVersion
+
+| Field | Type |
+|---|---|
+| version / model_id / prompt_ref / changelog | string |
+| approved | bool |
+| eval_score | number \| null |
+| rollback_target | string \| null |
+| created_at | timestamp |
+
+## Partition key mapping (Day 3 bridge)
+
+Memory partition key `organization/deal/workstream` maps 1:1 onto these paths:
+findings are always read/written under a single deal document scope and carry
+an explicit `workstream` field; cross-workstream reads go through the Gateway,
+never through a Firestore query (D3-M2 enforces, D3-M5 negative-tests).
+
+## Required composite indexes
+
+| Collection | Fields | Purpose |
+|---|---|---|
+| `findings` | `deal_id ASC, workstream ASC, status ASC, severity DESC` | workstream dashboards |
+| `findings` | `deal_id ASC, status ASC, updated_at DESC` | open-items feed |
+| `findings` | `deal_id ASC, severity DESC, confidence DESC` | escalation ordering (Day 8) |
+| `events` | `deal_id ASC, seq ASC` | ordered replay / materialization |
+| `registry agents` | `approved ASC, deployment_status ASC` | registry listing (D2-M5) |
+
+Single-field indexes on `severity`, `status`, `workstream`, `approved` are
+auto-created by Firestore.
