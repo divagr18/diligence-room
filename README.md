@@ -78,6 +78,9 @@ gcloud auth application-default login
   DATA_WRITE) are explicitly enabled for Firestore (configured via `datastore.googleapis.com`)
   and Cloud Storage (`storage.googleapis.com`).
 - **Billing guardrails:** budgets alert at 50% / 80% / 100% of the $170 hard cap.
+- **Repository:** hosted privately at `github.com/divagr18/diligence-room` with
+  branch protection on `main` (force-push/deletion blocked, admins enforced);
+  made public at submission per the hackathon checklist (Day 14, D14-M2).
 
 ### Org-policy deviations (standalone billing account)
 
@@ -88,6 +91,7 @@ org-scope constraints cannot be applied:
 |---|---|---|
 | Disable SA key creation | `iam.disableServiceAccountKeyCreation` (org/folder only) | **Deviation** — enforced by convention: zero SA keys, ADC/workload identity only; audited via Cloud Audit Logs |
 | Org policy constraints | Organization Policy Service | N/A without org node |
+| Branch protection | GitHub repo setting (not org policy) | **Applied** — `main` protected (enforce admins, no force-push/delete) on the private repo |
 
 These deviations are recorded deliberately and will be revisited if the project moves under an
 organization.
