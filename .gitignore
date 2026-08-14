@@ -19,6 +19,7 @@ htmlcov/
 .env.*
 keyfile*.json
 *-sa-key*.json
+.gate-venv/
 
 # Local tool state
 .codegraph/
