@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local environments & secrets (NEVER commit credentials)
+.env
+.env.*
+keyfile*.json
+*-sa-key*.json
+
+# Local tool state
+.codegraph/
+.omo/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Agent Engine local scratch (deployed resource state IS committed - see infra/deploy/)
+.agent-engine-scratch/
