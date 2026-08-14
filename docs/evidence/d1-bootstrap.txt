@@ -1,0 +1,117 @@
+﻿# Day 1 Bootstrap Evidence - 2026-08-15 02:48:27 +05:30
+
+== gcloud billing projects describe diligence-room ==
+billingAccountName: billingAccounts/012D4F-261885-E006CE
+billingEnabled: true
+name: projects/diligence-room/billingInfo
+projectId: diligence-room
+
+== Enabled services (project diligence-room) ==
+aiplatform.googleapis.com
+analyticshub.googleapis.com
+artifactregistry.googleapis.com
+bigquery.googleapis.com
+bigqueryconnection.googleapis.com
+bigquerydatapolicy.googleapis.com
+bigquerydatatransfer.googleapis.com
+bigquerymigration.googleapis.com
+bigqueryreservation.googleapis.com
+bigquerystorage.googleapis.com
+billingbudgets.googleapis.com
+cloudapis.googleapis.com
+cloudkms.googleapis.com
+cloudtrace.googleapis.com
+containerregistry.googleapis.com
+dataform.googleapis.com
+dataplex.googleapis.com
+datastore.googleapis.com
+dlp.googleapis.com
+documentai.googleapis.com
+firebaserules.googleapis.com
+firestore.googleapis.com
+logging.googleapis.com
+modelarmor.googleapis.com
+monitoring.googleapis.com
+pubsub.googleapis.com
+run.googleapis.com
+servicemanagement.googleapis.com
+serviceusage.googleapis.com
+sql-component.googleapis.com
+storage-api.googleapis.com
+storage-component.googleapis.com
+storage.googleapis.com
+telemetry.googleapis.com
+
+== Budget ==
+[
+  {
+    "amount": {
+      "specifiedAmount": {
+        "currencyCode": "INR",
+        "units": "15980"
+      }
+    },
+    "budgetFilter": {
+      "calendarPeriod": "MONTH",
+      "creditTypesTreatment": "INCLUDE_ALL_CREDITS",
+      "projects": [
+        "projects/910285417505"
+      ]
+    },
+    "displayName": "diligence-room-hard-cap",
+    "etag": "1786742006105599",
+    "name": "billingAccounts/012D4F-261885-E006CE/budgets/31bb8b60-1fad-439f-a723-c1989640a3d6",
+    "notificationsRule": {},
+    "thresholdRules": [
+      {
+        "spendBasis": "CURRENT_SPEND",
+        "thresholdPercent": 0.5
+      },
+      {
+        "spendBasis": "CURRENT_SPEND",
+        "thresholdPercent": 0.8
+      },
+      {
+        "spendBasis": "CURRENT_SPEND",
+        "thresholdPercent": 1.0
+      }
+    ]
+  },
+  {
+    "amount": {
+      "specifiedAmount": {
+        "currencyCode": "INR",
+        "units": "100"
+      }
+    },
+    "budgetFilter": {
+      "calendarPeriod": "MONTH",
+      "creditTypesTreatment": "INCLUDE_ALL_CREDITS"
+    },
+    "displayName": "?300 Monthly budget alert",
+    "etag": "1746119282252031",
+    "name": "billingAccounts/012D4F-261885-E006CE/budgets/a552dbc2-d276-463b-b146-c2ec8b968c7d",
+    "notificationsRule": {},
+    "thresholdRules": [
+      {
+        "spendBasis": "CURRENT_SPEND",
+        "thresholdPercent": 0.5
+      },
+      {
+        "spendBasis": "CURRENT_SPEND",
+        "thresholdPercent": 0.9
+      },
+      {
+        "spendBasis": "CURRENT_SPEND",
+        "thresholdPercent": 1.0
+      },
+      {
+        "spendBasis": "CURRENT_SPEND",
+        "thresholdPercent": 1.5
+      }
+    ]
+  }
+]
+
+== Staging bucket ==
+diligence-room-staging	US-CENTRAL1
