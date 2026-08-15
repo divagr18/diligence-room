@@ -90,3 +90,23 @@ The following provide offline equivalents until the live gate runs:
 The emulator fixture in `tests/conftest.py` starts a local Firestore
 emulator on a free port (session-scoped), sets `FIRESTORE_EMULATOR_HOST`,
 and yields a per-test project ID to ensure isolation without cleanup.
+
+## Offline gate (Day-2 gate substitute)
+
+`tests/test_e2e_offline.py` proves the full Day-2 chain against the emulator
+with zero live GCP calls:
+
+1. registry seeded with all 8 workstream agents (`registry/seed.py`);
+2. Project Falcon deal workspace provisioned (`runtime/deal_workspace.py`);
+3. a simulated `OBJECT_FINALIZE` notification for
+   `contract_customer_x.pdf` in the falcon US bucket is parsed into a
+   `document.ingested` envelope (`runtime/bucket_notify.py`);
+4. the envelope crosses the event bus (`runtime/events.py` InMemoryPublisher)
+   and is drained by a consumer into the append-only audit log
+   (`gateway/audit.py`, seq 1 assigned transactionally);
+5. the deal document is readable and the registry API serves the 8-agent
+   fleet.
+
+A second test proves duplicate notifications are idempotent (same seq, one
+document). When the live gate runs, this file is the acceptance contract the
+live flow must match.

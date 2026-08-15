@@ -70,6 +70,21 @@ gcloud auth application-default login
 | Deploy | `uv run python infra/deploy/agent_engine.py deploy` | reasoningEngines resource name printed |
 | Async invoke | `uv run python infra/deploy/agent_engine.py invoke` | asserted response from deployed agent |
 
+## Runbook (Day 2 — offline against the Firestore emulator)
+
+| Step | Command | Expected |
+|---|---|---|
+| Event bus + audit + store tests | `uv run pytest tests/test_events.py tests/test_gateway_audit.py tests/test_registry_store.py` | green against local emulator |
+| Registry seed + API | `uv run pytest tests/test_registry_api.py` | 8-agent seed, approval PATCH, 409/404/422 |
+| Dataset artifacts | `uv run python scripts/author_dataset.py` | deterministic PDF/XLSX artifacts regenerated |
+| Data-room plan (dry run) | `uv run python infra/data_room.py --deal-id deal-falcon --project-number 910285417505 --dry-run` | prints full gcloud plan, executes nothing |
+| Gateway shell | `uv run pytest tests/test_gateway_app.py tests/test_cloud_run_plan.py` | healthz/whoami/caller capture + write-only deploy gate |
+| **Offline gate (S8)** | `uv run pytest tests/test_e2e_offline.py` | full chain green; see `docs/deal_provisioning.md` |
+
+The live runbook (bucket creation, Cloud Run deploy, verification curls) is
+in [`docs/deal_provisioning.md`](docs/deal_provisioning.md) and is guarded by
+`--confirm-live` on every deploy script.
+
 ## Security posture (Day-1 guardrails)
 
 - **No service-account keys are created anywhere in this project.** All tooling authenticates with
