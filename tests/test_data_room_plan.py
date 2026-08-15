@@ -13,11 +13,13 @@ import pytest
 from infra.data_room import (
     PROJECT_ID,
     REGION_MAP,
+    SUBSCRIPTION,
     TOPIC,
     main,
     plan_bucket_pair,
     plan_data_room,
     plan_notification_args,
+    plan_subscription_args,
 )
 
 
@@ -57,6 +59,29 @@ class TestPlanNotificationArgs:
     def test_includes_bucket_gs_url(self) -> None:
         args = plan_notification_args("my-bucket", "my-topic")
         assert "gs://my-bucket" in args
+
+
+class TestPlanSubscriptionArgs:
+    """plan_subscription_args: gcloud pubsub subscriptions create argv."""
+
+    def test_exact_argv_shape(self) -> None:
+        args = plan_subscription_args(TOPIC, SUBSCRIPTION)
+        assert args == [
+            "pubsub",
+            "subscriptions",
+            "create",
+            SUBSCRIPTION,
+            f"--topic={TOPIC}",
+            f"--project={PROJECT_ID}",
+        ]
+
+    def test_topic_flag_uses_raw_name(self) -> None:
+        args = plan_subscription_args("t1", "s1")
+        assert "--topic=t1" in args
+
+    def test_includes_project_flag(self) -> None:
+        args = plan_subscription_args(TOPIC, SUBSCRIPTION)
+        assert f"--project={PROJECT_ID}" in args
 
 
 class TestPlanDataRoom:
@@ -113,6 +138,12 @@ class TestPlanDataRoom:
         assert f"--location={REGION_MAP['US']}" in locations
         assert f"--location={REGION_MAP['EU']}" in locations
 
+    def test_subscription_is_last_step(self) -> None:
+        steps = plan_data_room("deal-falcon", "910285417505")
+        last = steps[-1]
+        assert last[:4] == ["pubsub", "subscriptions", "create", SUBSCRIPTION]
+        assert f"--topic={TOPIC}" in last
+
 
 class TestMainDryRun:
     """main --dry-run: prints the plan, exits 0, no subprocess."""
@@ -138,6 +169,12 @@ class TestMainDryRun:
             main(["--deal-id", "deal-falcon", "--project-number", "1", "--dry-run"])
         captured = capsys.readouterr().out
         assert captured.count("notifications") >= 2
+
+    def test_dry_run_prints_subscription(self, capsys: pytest.CaptureFixture[str]) -> None:
+        with pytest.raises(SystemExit):
+            main(["--deal-id", "deal-falcon", "--project-number", "1", "--dry-run"])
+        captured = capsys.readouterr().out
+        assert "subscriptions create deal-events-sub" in captured
 
 
 class TestMainLiveGuard:

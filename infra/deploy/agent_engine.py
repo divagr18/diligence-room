@@ -95,7 +95,13 @@ def _extract_text(event: object) -> str:
     return "".join(texts)
 
 
-async def run_invoke(resource_name: str) -> int:
+async def invoke_text(resource_name: str, message: str) -> str:
+    """Send one message to the deployed agent and return the response text.
+
+    Creates an async session, prefers ``async_query`` and falls back to
+    draining ``async_stream_query``; text parts from all events are joined
+    with newlines. Reused by the Day-2 live consumer (runtime.consumer).
+    """
     init_vertex()
     from vertexai import agent_engines
 
@@ -105,7 +111,6 @@ async def run_invoke(resource_name: str) -> int:
     session_id = session["id"] if isinstance(session, dict) else session.id
     print(f"Session: {session_id}")
 
-    message = f"Please call the echo tool with exactly: {MARKER}"
     collected: list[str] = []
     query = getattr(remote_app, "async_query", None)
     if query is not None:
@@ -118,7 +123,12 @@ async def run_invoke(resource_name: str) -> int:
         )
         async for event in stream:
             collected.append(_extract_text(event))
-    response_text = "\n".join(text for text in collected if text)
+    return "\n".join(text for text in collected if text)
+
+
+async def run_invoke(resource_name: str) -> int:
+    message = f"Please call the echo tool with exactly: {MARKER}"
+    response_text = await invoke_text(resource_name, message)
     print(f"Agent response: {response_text!r}")
     if MARKER not in response_text:
         print(f"FAIL: marker {MARKER!r} not found in response")

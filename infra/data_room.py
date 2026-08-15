@@ -28,6 +28,7 @@ from infra.bootstrap_gcp import run_gcloud
 
 PROJECT_ID: str = "diligence-room"
 TOPIC: str = "deal-events"
+SUBSCRIPTION: str = "deal-events-sub"
 REGION_MAP: dict[str, str] = {"US": "us-central1", "EU": "europe-west1"}
 
 _DEAL_ID_RE: re.Pattern[str] = re.compile(r"^[a-z][a-z0-9-]*$")
@@ -68,6 +69,18 @@ def plan_notification_args(bucket: str, topic: str) -> list[str]:
     ]
 
 
+def plan_subscription_args(topic: str, subscription: str) -> list[str]:
+    """Build the gcloud argv for a Pub/Sub pull subscription."""
+    return [
+        "pubsub",
+        "subscriptions",
+        "create",
+        subscription,
+        f"--topic={topic}",
+        f"--project={PROJECT_ID}",
+    ]
+
+
 def plan_data_room(deal_id: str, project_number: str) -> list[list[str]]:
     """Return the ordered gcloud command plan for a deal's data room.
 
@@ -77,6 +90,7 @@ def plan_data_room(deal_id: str, project_number: str) -> list[list[str]]:
       3. Create EU bucket.
       4. IAM grant: roles/pubsub.publisher → GCS service account on the topic.
       5. OBJECT_FINALIZE notification per bucket.
+      6. Pull subscription on the topic.
     """
     us_bucket, eu_bucket = plan_bucket_pair(deal_id)
     steps: list[list[str]] = []
@@ -126,6 +140,9 @@ def plan_data_room(deal_id: str, project_number: str) -> list[list[str]]:
     # 5. Notifications (one per bucket)
     for bucket in (us_bucket, eu_bucket):
         steps.append(plan_notification_args(bucket, TOPIC))
+
+    # 6. Pull subscription on the topic
+    steps.append(plan_subscription_args(TOPIC, SUBSCRIPTION))
 
     return steps
 
@@ -188,6 +205,19 @@ def ensure_notification(bucket: str, topic: str, project: str) -> None:
         return
     run_gcloud(plan_notification_args(bucket, topic) + [f"--project={project}"])
     print(f"    created notification on gs://{bucket} → {topic}")
+
+
+def ensure_subscription(topic: str, subscription: str, project: str) -> None:
+    """Create the Pub/Sub pull subscription if it does not already exist."""
+    result = run_gcloud(
+        ["pubsub", "subscriptions", "describe", subscription, f"--project={project}"],
+        check=False,
+    )
+    if result.returncode == 0:
+        print(f"    subscription {subscription} already exists - ok")
+        return
+    run_gcloud(plan_subscription_args(topic, subscription))
+    print(f"    created subscription {subscription} → {topic}")
 
 
 # --------------------------------------------------------------------------
@@ -276,6 +306,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     ensure_notification(us_bucket, TOPIC, PROJECT_ID)
     ensure_notification(eu_bucket, TOPIC, PROJECT_ID)
+    ensure_subscription(TOPIC, SUBSCRIPTION, PROJECT_ID)
 
     print(f"\nData room ready for {args.deal_id}.")
     return 0
