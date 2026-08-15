@@ -7,16 +7,27 @@ quote them verbatim.
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from pathlib import Path
 
 from openpyxl import load_workbook
 from pypdf import PdfReader
 
-from scripts.author_dataset import write_contract_customer_x, write_financials_fy27
+from scripts.author_dataset import (
+    write_contract_customer_x,
+    write_financials_fy27,
+    write_hr_roster_draft,
+    write_tech_inventory_draft,
+)
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "acme_robotics"
 CONTRACT_PDF = DATA_DIR / "contract_customer_x.pdf"
 FINANCIALS_XLSX = DATA_DIR / "financials_fy27.xlsx"
+HR_ROSTER_XLSX = DATA_DIR / "hr_roster_acme.xlsx"
+TECH_INVENTORY_PDF = DATA_DIR / "tech_inventory.pdf"
+
+ROSTER_DATE = date(2026, 8, 14)
+WHITFIELD_DEPARTURE = date(2026, 10, 13)
 
 COC_SPAN = (
     "may terminate this Agreement by written notice delivered within ninety "
@@ -95,3 +106,43 @@ class TestFinancialsArtifact:
         write_financials_fy27(regenerated)
         assert self._revenue_rows(regenerated) == self._revenue_rows(FINANCIALS_XLSX)
         assert self._total_row(regenerated) == self._total_row(FINANCIALS_XLSX)
+
+
+class TestDraftArtifacts:
+    def _whitfield_row(self, path: Path) -> tuple[object, ...]:
+        workbook = load_workbook(path)
+        sheet = workbook["Roster"]
+        for row in sheet.iter_rows(min_row=2, values_only=True):
+            if row[0] == "Dana Whitfield":
+                return row
+        raise AssertionError("Dana Whitfield missing from HR roster")
+
+    def test_hr_roster_flagged_draft(self) -> None:
+        workbook = load_workbook(HR_ROSTER_XLSX)
+        assert any("DRAFT" in name for name in workbook.sheetnames)
+
+    def test_hr_roster_contains_whitfield_resignation(self) -> None:
+        whitfield = self._whitfield_row(HR_ROSTER_XLSX)
+        assert whitfield[1] == "VP Customer Success"
+        assert whitfield[3] == "Meridian Logistics, Inc."
+        assert whitfield[4] == "Resigning"
+        departure = whitfield[5]
+        assert isinstance(departure, datetime)
+        assert departure.date() == WHITFIELD_DEPARTURE
+        assert (departure.date() - ROSTER_DATE).days == 60
+
+    def test_hr_roster_regeneration_preserves_whitfield(self, tmp_path: Path) -> None:
+        regenerated = tmp_path / "hr_roster_acme.xlsx"
+        write_hr_roster_draft(regenerated)
+        assert self._whitfield_row(regenerated) == self._whitfield_row(HR_ROSTER_XLSX)
+
+    def test_tech_inventory_flagged_draft_with_titanbridge(self) -> None:
+        text = _normalized_pdf_text(TECH_INVENTORY_PDF)
+        assert "DRAFT" in text
+        assert "TitanBridge 4.1" in text
+        assert "Meridian" in text
+
+    def test_tech_inventory_regeneration_byte_identical(self, tmp_path: Path) -> None:
+        regenerated = tmp_path / "tech_inventory.pdf"
+        write_tech_inventory_draft(regenerated)
+        assert regenerated.read_bytes() == TECH_INVENTORY_PDF.read_bytes()

@@ -1,14 +1,18 @@
-"""Deterministic synthetic dataset generator (BUILD_PLAN D2-M4).
+"""Deterministic synthetic dataset generator (BUILD_PLAN D2-M4 + D2-M6 drafts).
 
-Produces the committed Day-2 artifacts carrying the keystone demo facts:
+Produces the committed dataset artifacts carrying the keystone demo facts:
 
 - ``contract_customer_x.pdf`` — Acme Robotics master services agreement with
   Meridian Logistics (Customer X), including the change-of-control
   termination right at clause 11.3.
 - ``financials_fy27.xlsx`` — projected FY27 revenue by customer, where
   Meridian Logistics is exactly 18.300% of the total.
+- ``hr_roster_acme.xlsx`` — DRAFT roster (finalized D3-M7) with Dana
+  Whitfield's resignation dated roster-date + 60 days.
+- ``tech_inventory.pdf`` — DRAFT asset inventory (finalized D4-M3) with the
+  TitanBridge 4.1 end-of-life dependency.
 
-Both writers are deterministic (pinned metadata timestamps, no formulas, no
+All writers are deterministic (pinned metadata timestamps, no formulas, no
 runtime clock reads) so regeneration yields identical content; the tests in
 tests/test_dataset_artifacts.py pin the planted facts.
 """
@@ -16,7 +20,7 @@ tests/test_dataset_artifacts.py pin the planted facts.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from fpdf import FPDF
@@ -27,6 +31,9 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "acme_robotics"
 
 _PINNED_DATE = datetime(2026, 7, 1, 9, 0, 0)
 _PINNED_DATE_UTC = datetime(2026, 7, 1, 9, 0, 0, tzinfo=UTC)
+
+_ROSTER_DATE = date(2026, 8, 14)
+_WHITFIELD_DEPARTURE = _ROSTER_DATE + timedelta(days=60)
 
 _SECTION_FONT_SIZE = 11
 _LINE_HEIGHT = 6
@@ -243,13 +250,116 @@ def write_financials_fy27(path: Path) -> None:
     workbook.save(path)
 
 
+def write_hr_roster_draft(path: Path) -> None:
+    """Write the synthetic Acme Robotics HR roster (draft; finalized D3-M7)."""
+    workbook = Workbook()
+    workbook.properties.created = _PINNED_DATE
+    workbook.properties.modified = _PINNED_DATE
+
+    roster = workbook.worksheets[0]
+    roster.title = "Roster"
+    roster.append(["Employee", "Role", "Department", "Primary Account", "Status", "Departure Date"])
+    roster.append(
+        [
+            "Dana Whitfield",
+            "VP Customer Success",
+            "Customer Success",
+            "Meridian Logistics, Inc.",
+            "Resigning",
+            datetime.combine(_WHITFIELD_DEPARTURE, datetime.min.time()),
+        ]
+    )
+    for employee, role, department in (
+        ("Priya Raman", "Director of Engineering", "Engineering"),
+        ("Marcus Bell", "Finance Controller", "Finance"),
+        ("Elena Kovacs", "Head of People", "Human Resources"),
+        ("Tom Okafor", "Fleet Operations Lead", "Operations"),
+    ):
+        roster.append([employee, role, department, "", "Employed", None])
+    roster.column_dimensions["A"].width = 24
+    roster.column_dimensions["B"].width = 26
+    roster.column_dimensions["C"].width = 20
+    roster.column_dimensions["D"].width = 28
+    roster.column_dimensions["E"].width = 14
+    roster.column_dimensions["F"].width = 16
+
+    notes = workbook.create_sheet("Notes (DRAFT)")
+    for note in (
+        "STATUS: DRAFT - authored Day 2 (D2-M6); finalized Day 3 (D3-M7).",
+        f"Roster reference date: {_ROSTER_DATE.isoformat()}.",
+        "Dana Whitfield owns the Meridian Logistics (Customer X) relationship; "
+        "resignation effective 60 days after the roster reference date.",
+        "Synthetic data - no real personnel information.",
+    ):
+        notes.append([note])
+    notes.column_dimensions["A"].width = 100
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    workbook.save(path)
+
+
+def write_tech_inventory_draft(path: Path) -> None:
+    """Write the synthetic technology asset inventory (draft; finalized D4-M3)."""
+    pdf = FPDF()
+    pdf.creation_date = _PINNED_DATE_UTC
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, "TECHNOLOGY ASSET INVENTORY (DRAFT)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.ln(4)
+    pdf.set_font("Helvetica", "", _SECTION_FONT_SIZE)
+    pdf.multi_cell(
+        0,
+        _LINE_HEIGHT,
+        "Acme Robotics, Inc. - prepared for Project Falcon diligence. "
+        "Status: DRAFT, authored Day 2 (D2-M6); finalized Day 4 (D4-M3).",
+        new_x=XPos.LMARGIN,
+        new_y=YPos.NEXT,
+    )
+    pdf.ln(4)
+
+    entries = (
+        (
+            "Fleet Orchestration Platform",
+            "Runs on TitanBridge 4.1 (vendor end-of-life 2026-03; no support "
+            "contract). Serves the Meridian Logistics, Inc. account. Migration "
+            "to a supported runtime is estimated at 9-12 months.",
+        ),
+        (
+            "Perception Stack",
+            "Proprietary computer-vision pipeline; patents assigned to Acme "
+            "Robotics, Inc. Open-source components under Apache-2.0.",
+        ),
+        (
+            "Warehouse Gateway",
+            "Firmware maintained in-house; hardware refresh due FY28.",
+        ),
+    )
+    for title, body in entries:
+        pdf.set_font("Helvetica", "B", _SECTION_FONT_SIZE)
+        pdf.multi_cell(0, _LINE_HEIGHT, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font("Helvetica", "", _SECTION_FONT_SIZE)
+        pdf.multi_cell(0, _LINE_HEIGHT, body, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.ln(3)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pdf.output(str(path))
+
+
 def main() -> None:
     contract_path = DATA_DIR / "contract_customer_x.pdf"
     financials_path = DATA_DIR / "financials_fy27.xlsx"
+    roster_path = DATA_DIR / "hr_roster_acme.xlsx"
+    tech_path = DATA_DIR / "tech_inventory.pdf"
     write_contract_customer_x(contract_path)
     write_financials_fy27(financials_path)
+    write_hr_roster_draft(roster_path)
+    write_tech_inventory_draft(tech_path)
     print(f"wrote {contract_path}")
     print(f"wrote {financials_path}")
+    print(f"wrote {roster_path}")
+    print(f"wrote {tech_path}")
 
 
 if __name__ == "__main__":
