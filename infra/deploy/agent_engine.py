@@ -170,7 +170,9 @@ def cmd_delete(args: argparse.Namespace) -> int:
     from vertexai import agent_engines
 
     resource_name = load_resource_name(args.resource_name)
-    agent_engines.delete(resource_name=resource_name)
+    # force=True removes the sessions created by invoke; without it the delete
+    # fails with FailedPrecondition (child resources).
+    agent_engines.delete(resource_name=resource_name, force=True)
     if STATE_PATH.exists():
         STATE_PATH.unlink()
     print(f"Deleted: {resource_name}")

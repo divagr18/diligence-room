@@ -45,6 +45,9 @@ gcloud projects undelete diligence-room
 # 2. Bootstrap: APIs, billing, staging bucket, budget alerts.
 uv run python infra/bootstrap_gcp.py
 
+# 2b. Create the Firestore database (NOT auto-created after undelete/new project).
+gcloud firestore databases create --project=diligence-room --location=nam5
+
 # 3. Org-safety guardrails (audit logs, SA-key policy).
 uv run python infra/guardrails.py
 
@@ -66,9 +69,10 @@ gcloud storage cp \
     gs://diligence-room-dataroom-deal-falcon-us/
 
 # 8. Verify the deployed services respond.
-curl https://<gateway-url>/healthz
+# Note: use /health on Cloud Run — Google Frontend answers /healthz itself at
+# the edge before the container sees it (the app serves both routes).
+curl https://<gateway-url>/health
 curl https://<gateway-url>/whoami
-curl https://<gateway-url>/agents
 ```
 
 The `--confirm-live` flag on `data_room.py`, `seed.py`, and `cloud_run.py` is
@@ -77,9 +81,11 @@ exits immediately with a refusal message.
 
 ## Offline substitutes
 
-The GCP project is currently torn down (deliberate teardown; recoverable via
-`gcloud projects undelete diligence-room`), so live verification is paused.
-The following provide offline equivalents until the live gate runs:
+The live Day-2 gate was executed successfully on 2026-08-16 (see
+`docs/evidence/d2-live-gate.txt`) and the project was torn down again
+afterwards (`docs/evidence/d2-teardown.txt`, recoverable via
+`gcloud projects undelete diligence-room`). The offline equivalents below
+remain the development-time contract:
 
 | Live activity | Offline substitute |
 |---|---|
