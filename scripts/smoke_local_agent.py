@@ -13,7 +13,9 @@ import sys
 
 os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "TRUE")
 os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "diligence-room")
-os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "us-central1")
+# gemini-3.5-flash is served from the global location on Vertex (verified by
+# regional probe; regional endpoints return 404 for this model).
+os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
 
 from google.adk.runners import InMemoryRunner  # noqa: E402
 from google.genai import types  # noqa: E402
@@ -24,7 +26,7 @@ MARKER = "diligence-room-day1-smoke"
 
 
 async def run() -> int:
-    runner = InMemoryRunner(agent=root_agent)
+    runner = InMemoryRunner(agent=root_agent, app_name=root_agent.name)
     session = await runner.session_service.create_session(
         app_name=root_agent.name, user_id="day1-smoke"
     )

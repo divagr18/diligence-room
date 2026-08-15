@@ -25,5 +25,18 @@ the hackathon requirements — "Gemini 3.5 Flash".
 
 Local/remote invocation against Vertex is the final verification step
 (`scripts/smoke_local_agent.py`, then `infra/deploy/agent_engine.py invoke`).
-Status: **pending — requires Application Default Credentials**
-(`gcloud auth application-default login`).
+
+**Verified live 2026-08-16 (project diligence-room):**
+
+- `gemini-3.5-flash` is served ONLY from the **`global`** location. Regional
+  endpoints (us-central1, us-east1, us-east5, europe-west1, us-west1) returned
+  404 in a live probe; `global` returned 200. All runtimes therefore set
+  `GOOGLE_CLOUD_LOCATION=global` for the model client.
+- Agent Engine resources are created in `us-central1` (canonical supported
+  region); the remote ADK runtime receives the model location via
+  `env_vars={"GOOGLE_GENAI_USE_VERTEXAI": "TRUE", "GOOGLE_CLOUD_LOCATION": "global"}`.
+  Note: `GOOGLE_CLOUD_PROJECT` is RESERVED by Agent Engine env injection and
+  must not be set manually.
+- Local smoke `[smoke] PASS`; deployed agent
+  `projects/910285417505/locations/us-central1/reasoningEngines/5096132490892935168`
+  answered the async invoke with the echo marker: PASS.

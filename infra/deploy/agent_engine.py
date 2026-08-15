@@ -23,7 +23,11 @@ from pathlib import Path
 from typing import Any
 
 PROJECT_ID = "diligence-room"
+# Agent Engine resources live in us-central1 (canonical supported region);
+# the gemini-3.5-flash model itself is only served from the global location,
+# so the remote ADK runtime gets GOOGLE_CLOUD_LOCATION=global via env_vars.
 LOCATION = "us-central1"
+MODEL_LOCATION = "global"
 STAGING_BUCKET = f"gs://{PROJECT_ID}-staging"
 DISPLAY_NAME = "diligence-room-hello"
 STATE_PATH = Path(__file__).parent / "agent_engine_state.json"
@@ -64,6 +68,10 @@ def cmd_deploy(args: argparse.Namespace) -> int:
         display_name=args.display_name or DISPLAY_NAME,
         requirements=REMOTE_REQUIREMENTS,
         extra_packages=["./agents"],
+        env_vars={
+            "GOOGLE_GENAI_USE_VERTEXAI": "TRUE",
+            "GOOGLE_CLOUD_LOCATION": MODEL_LOCATION,
+        },
     )
     resource_name: str = remote_app.resource_name
     STATE_PATH.write_text(
