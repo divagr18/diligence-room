@@ -13,6 +13,15 @@
 .venv/
 venv/
 env/
+.python-version
+uv.lock
+
+# Secrets (defense in depth; also gitignored)
+.env
+.env.*
+keyfile*.json
+*-sa-key*.json
+opencode.json
 
 # Non-runtime directories
 docs/evidence/

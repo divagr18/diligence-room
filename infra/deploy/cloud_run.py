@@ -21,7 +21,12 @@ def build_deploy_args(
     region: str,
     allow_unauthenticated: bool,
 ) -> list[str]:
-    """Return the ``gcloud run deploy`` argument list."""
+    """Return the ``gcloud run deploy`` argument list.
+
+    Pins the remote Python runtime (GOOGLE_PYTHON_VERSION) because the repo's
+    ``.python-version`` targets local development tooling and is excluded from
+    the source upload (see .gcloudignore).
+    """
     args: list[str] = [
         "run",
         "deploy",
@@ -32,6 +37,7 @@ def build_deploy_args(
         region,
         "--project",
         project,
+        "--set-build-env-vars=GOOGLE_PYTHON_VERSION=3.13",
     ]
     if allow_unauthenticated:
         args.append("--allow-unauthenticated")

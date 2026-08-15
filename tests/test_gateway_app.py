@@ -25,6 +25,16 @@ def test_healthz_returns_ok(client: TestClient) -> None:
     assert response.json() == {"status": "ok", "service": "gateway"}
 
 
+def test_health_alias_returns_ok(client: TestClient) -> None:
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "service": "gateway"}
+
+
+def test_healthz_and_health_share_one_contract(client: TestClient) -> None:
+    assert client.get("/healthz").json() == client.get("/health").json()
+
+
 def test_whoami_with_caller_identity_header(client: TestClient) -> None:
     response = client.get("/whoami", headers={"X-Caller-Identity": "legal-agent@deal-falcon"})
     assert response.status_code == 200

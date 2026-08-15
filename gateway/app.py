@@ -51,5 +51,9 @@ def create_app() -> fastapi.FastAPI:
     app = fastapi.FastAPI(title="Diligence Room - Agent Gateway")
     app.add_middleware(_CallerIdentityMiddleware)
     app.add_api_route("/healthz", _healthz, methods=["GET"])
+    # /health alias: Google Frontend answers /healthz itself on Cloud Run
+    # (returns an edge 404 before the container sees the request), so the
+    # deployed liveness probe uses /health.
+    app.add_api_route("/health", _healthz, methods=["GET"])
     app.add_api_route("/whoami", _whoami, methods=["GET"])
     return app

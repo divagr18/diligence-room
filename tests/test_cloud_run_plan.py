@@ -33,7 +33,19 @@ def test_build_deploy_args_includes_service_source_region_project() -> None:
         "us-central1",
         "--project",
         "my-project",
+        "--set-build-env-vars=GOOGLE_PYTHON_VERSION=3.13",
     ]
+
+
+def test_build_deploy_args_pins_remote_python_version() -> None:
+    args = build_deploy_args(
+        project="my-project",
+        service="gateway",
+        source=".",
+        region="us-central1",
+        allow_unauthenticated=False,
+    )
+    assert "--set-build-env-vars=GOOGLE_PYTHON_VERSION=3.13" in args
 
 
 def test_build_deploy_args_allow_unauthenticated_present() -> None:
