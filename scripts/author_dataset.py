@@ -1,4 +1,4 @@
-"""Deterministic synthetic dataset generator (BUILD_PLAN D2-M4 + D2-M6 drafts).
+"""Deterministic synthetic dataset generator (BUILD_PLAN D2-M4 + D2-M6 + D3-M7).
 
 Produces the committed dataset artifacts carrying the keystone demo facts:
 
@@ -7,7 +7,7 @@ Produces the committed dataset artifacts carrying the keystone demo facts:
   termination right at clause 11.3.
 - ``financials_fy27.xlsx`` — projected FY27 revenue by customer, where
   Meridian Logistics is exactly 18.300% of the total.
-- ``hr_roster_acme.xlsx`` — DRAFT roster (finalized D3-M7) with Dana
+- ``hr_roster_acme.xlsx`` — finalized roster (D3-M7) with Dana
   Whitfield's resignation dated roster-date + 60 days.
 - ``tech_inventory.pdf`` — DRAFT asset inventory (finalized D4-M3) with the
   TitanBridge 4.1 end-of-life dependency.
@@ -46,14 +46,16 @@ class _CustomerRevenue:
     revenue: int
 
 
+MERIDIAN_REVENUE = 8_893_800
+TOTAL_REVENUE = 48_600_000
+
 _CUSTOMER_REVENUES: tuple[_CustomerRevenue, ...] = (
-    _CustomerRevenue("Meridian Logistics, Inc.", "Enterprise Logistics", 8_893_800),
+    _CustomerRevenue("Meridian Logistics, Inc.", "Enterprise Logistics", MERIDIAN_REVENUE),
     _CustomerRevenue("Halbrook Manufacturing", "Manufacturing", 12_400_000),
     _CustomerRevenue("Cascade Retail Group", "Retail", 9_850_000),
     _CustomerRevenue("Public Sector & Municipal", "Public Sector", 8_106_200),
     _CustomerRevenue("Other (43 accounts)", "Mixed", 9_350_000),
 )
-_TOTAL_REVENUE = 48_600_000
 
 
 def _contract_paragraphs() -> list[tuple[str, str]]:
@@ -222,9 +224,9 @@ def write_financials_fy27(path: Path) -> None:
     sheet.title = "FY27 Projected Revenue"
     sheet.append(["Customer", "Segment", "Projected FY27 Revenue (USD)", "Percent of Total"])
     for entry in _CUSTOMER_REVENUES:
-        share = entry.revenue / _TOTAL_REVENUE
+        share = entry.revenue / TOTAL_REVENUE
         sheet.append([entry.customer, entry.segment, entry.revenue, share])
-    sheet.append(["TOTAL", "", _TOTAL_REVENUE, 1.0])
+    sheet.append(["TOTAL", "", TOTAL_REVENUE, 1.0])
     for row in sheet.iter_rows(min_row=2, min_col=3, max_col=3):
         for cell in row:
             cell.number_format = "#,##0"
@@ -241,7 +243,7 @@ def write_financials_fy27(path: Path) -> None:
         "Synthetic data for the Diligence Room hackathon dataset - not real financials.",
         "FY27 projections are management estimates as of the diligence start date.",
         "Customer X is the internal alias for Meridian Logistics, Inc.",
-        f"Total projected FY27 revenue is fixed at {_TOTAL_REVENUE:,} USD.",
+        f"Total projected FY27 revenue is fixed at {TOTAL_REVENUE:,} USD.",
     ):
         assumptions.append([note])
     assumptions.column_dimensions["A"].width = 100
@@ -250,8 +252,8 @@ def write_financials_fy27(path: Path) -> None:
     workbook.save(path)
 
 
-def write_hr_roster_draft(path: Path) -> None:
-    """Write the synthetic Acme Robotics HR roster (draft; finalized D3-M7)."""
+def write_hr_roster(path: Path) -> None:
+    """Write the synthetic Acme Robotics HR roster (finalized D3-M7)."""
     workbook = Workbook()
     workbook.properties.created = _PINNED_DATE
     workbook.properties.modified = _PINNED_DATE
@@ -283,9 +285,9 @@ def write_hr_roster_draft(path: Path) -> None:
     roster.column_dimensions["E"].width = 14
     roster.column_dimensions["F"].width = 16
 
-    notes = workbook.create_sheet("Notes (DRAFT)")
+    notes = workbook.create_sheet("Notes")
     for note in (
-        "STATUS: DRAFT - authored Day 2 (D2-M6); finalized Day 3 (D3-M7).",
+        "STATUS: finalized Day 3 (D3-M7); authored Day 2 (D2-M6).",
         f"Roster reference date: {_ROSTER_DATE.isoformat()}.",
         "Dana Whitfield owns the Meridian Logistics (Customer X) relationship; "
         "resignation effective 60 days after the roster reference date.",
@@ -354,7 +356,7 @@ def main() -> None:
     tech_path = DATA_DIR / "tech_inventory.pdf"
     write_contract_customer_x(contract_path)
     write_financials_fy27(financials_path)
-    write_hr_roster_draft(roster_path)
+    write_hr_roster(roster_path)
     write_tech_inventory_draft(tech_path)
     print(f"wrote {contract_path}")
     print(f"wrote {financials_path}")

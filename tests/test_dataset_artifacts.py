@@ -14,9 +14,11 @@ from openpyxl import load_workbook
 from pypdf import PdfReader
 
 from scripts.author_dataset import (
+    MERIDIAN_REVENUE,
+    TOTAL_REVENUE,
     write_contract_customer_x,
     write_financials_fy27,
-    write_hr_roster_draft,
+    write_hr_roster,
     write_tech_inventory_draft,
 )
 
@@ -108,7 +110,7 @@ class TestFinancialsArtifact:
         assert self._total_row(regenerated) == self._total_row(FINANCIALS_XLSX)
 
 
-class TestDraftArtifacts:
+class TestHrRosterAndTechInventory:
     def _whitfield_row(self, path: Path) -> tuple[object, ...]:
         workbook = load_workbook(path)
         sheet = workbook["Roster"]
@@ -117,9 +119,10 @@ class TestDraftArtifacts:
                 return row
         raise AssertionError("Dana Whitfield missing from HR roster")
 
-    def test_hr_roster_flagged_draft(self) -> None:
+    def test_hr_roster_finalized_without_draft_flag(self) -> None:
         workbook = load_workbook(HR_ROSTER_XLSX)
-        assert any("DRAFT" in name for name in workbook.sheetnames)
+        assert "Roster" in workbook.sheetnames
+        assert not any("DRAFT" in name for name in workbook.sheetnames)
 
     def test_hr_roster_contains_whitfield_resignation(self) -> None:
         whitfield = self._whitfield_row(HR_ROSTER_XLSX)
@@ -133,7 +136,7 @@ class TestDraftArtifacts:
 
     def test_hr_roster_regeneration_preserves_whitfield(self, tmp_path: Path) -> None:
         regenerated = tmp_path / "hr_roster_acme.xlsx"
-        write_hr_roster_draft(regenerated)
+        write_hr_roster(regenerated)
         assert self._whitfield_row(regenerated) == self._whitfield_row(HR_ROSTER_XLSX)
 
     def test_tech_inventory_flagged_draft_with_titanbridge(self) -> None:
@@ -146,3 +149,20 @@ class TestDraftArtifacts:
         regenerated = tmp_path / "tech_inventory.pdf"
         write_tech_inventory_draft(regenerated)
         assert regenerated.read_bytes() == TECH_INVENTORY_PDF.read_bytes()
+
+
+class TestDatasetConsistency:
+    def test_customer_x_share_exact_in_workbook(self) -> None:
+        financials = TestFinancialsArtifact()
+        meridian = financials._revenue_rows(FINANCIALS_XLSX)["Meridian Logistics, Inc."]
+        total = financials._total_row(FINANCIALS_XLSX)
+        assert meridian == MERIDIAN_REVENUE
+        assert total == TOTAL_REVENUE
+        assert meridian / total == 0.183
+        assert f"{meridian / total:.3%}" == "18.300%"
+
+    def test_plan_doc_pins_the_same_figures(self) -> None:
+        plan = (DATA_DIR / "DATASET_PLAN.md").read_text(encoding="utf-8")
+        assert "8,893,800" in plan
+        assert "48,600,000" in plan
+        assert "18.300%" in plan
