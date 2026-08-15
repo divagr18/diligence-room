@@ -55,7 +55,7 @@ uv run python infra/data_room.py \
     --confirm-live
 
 # 5. Seed the agent registry (8 manifests).
-uv run python registry/seed.py
+uv run python registry/seed.py --confirm-live
 
 # 6. Deploy Cloud Run services (gateway + dashboard).
 uv run python infra/deploy/cloud_run.py --confirm-live
@@ -71,8 +71,8 @@ curl https://<gateway-url>/whoami
 curl https://<gateway-url>/agents
 ```
 
-The `--confirm-live` flag on both `data_room.py` and `cloud_run.py` is a
-deliberate write-only guard: running without it (and without `--dry-run`)
+The `--confirm-live` flag on `data_room.py`, `seed.py`, and `cloud_run.py` is
+a deliberate write-only guard: running without it (and without `--dry-run`)
 exits immediately with a refusal message.
 
 ## Offline substitutes
