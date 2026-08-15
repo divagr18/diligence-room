@@ -101,3 +101,20 @@ never through a Firestore query (D3-M2 enforces, D3-M5 negative-tests).
 
 Single-field indexes on `severity`, `status`, `workstream`, `approved` are
 auto-created by Firestore.
+
+## Workstream partitions (Day 3)
+
+Memory Bank namespaces data per vision §7.3 as **organization/deal/workstream**.
+The three-part key maps onto the Firestore document path
+
+    deals/{deal_id}/workstreams/{ws}
+
+where `{ws}` is a `Workstream` value (`legal`, `finance`, … `real_estate`).
+Workstream-scoped data lives in the `items` subcollection beneath this document:
+
+    deals/{deal_id}/workstreams/{ws}/items/{item_id}
+
+The existing `findings` and `events` collections remain deal-scoped
+(`deals/{deal_id}/findings/…`, `deals/{deal_id}/events/…`) and are not nested
+under workstream partitions — cross-workstream queries route through the
+Gateway policy engine, never through direct Firestore fan-out.
