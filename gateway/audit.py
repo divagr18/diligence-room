@@ -1,36 +1,19 @@
-"""Append-only decision/event audit writer (BUILD_PLAN D2-M8).
+"""Gateway audit delegation layer (BUILD_PLAN D3-M4).
 
-Writes EventEnvelope to deals/{deal_id}/events/{event_id} with transactional
-seq assignment. Append is idempotent on event_id: a duplicate returns the
-existing seq without creating a new document (vision §7.3, D6-M2).
+Thin wrapper over memory.event_log.EventLog — the canonical append-only
+event writer. Public names (AuditRecord, DealEventAuditLog) are preserved
+for backward compatibility with existing tests and runtime code.
 """
 
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
-
 from google.cloud import firestore
 
+from memory.event_log import EventLog, EventRecord
 from runtime.events import EventEnvelope
 
-
-def _canonical_payload(payload: dict[str, object]) -> str:
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
-
-
-@dataclass(frozen=True, slots=True)
-class AuditRecord:
-    event_id: str
-    deal_id: str
-    ts: datetime
-    seq: int
-    actor: str
-    type: str
-    payload_json: str
-    dedupe_key: str
+# Type alias: fields are identical, so no conversion needed
+AuditRecord = EventRecord
 
 
 class DealEventAuditLog:
@@ -38,72 +21,15 @@ class DealEventAuditLog:
 
     Each deal has an independent monotonic seq counter starting at 1.
     Append is idempotent on event_id: a duplicate returns the stored seq.
+
+    Delegates to memory.event_log.EventLog (Day-3 canonical writer).
     """
 
     def __init__(self, client: firestore.Client) -> None:
-        self._client = client
-
-    def _events_collection(self, deal_id: str) -> Any:
-        return self._client.collection("deals").document(deal_id).collection("events")
+        self._event_log = EventLog(client)
 
     def append(self, envelope: EventEnvelope) -> int:
-        transaction = self._client.transaction()
-
-        @firestore.transactional
-        def _append_txn(txn: Any, env: EventEnvelope) -> int:
-            events_col = self._events_collection(env.deal_id)
-            doc_ref = events_col.document(env.event_id)
-
-            snapshot = doc_ref.get(transaction=txn)
-            if snapshot.exists:
-                existing: dict[str, Any] = snapshot.to_dict() or {}
-                return int(existing["seq"])
-
-            last_docs = list(
-                events_col.order_by("seq", direction=firestore.Query.DESCENDING)
-                .limit(1)
-                .stream(transaction=txn)
-            )
-            last_seq = int(last_docs[0].to_dict()["seq"]) if last_docs else 0
-            next_seq = last_seq + 1
-
-            txn.set(
-                doc_ref,
-                {
-                    "event_id": env.event_id,
-                    "deal_id": env.deal_id,
-                    "ts": env.ts,
-                    "seq": next_seq,
-                    "actor": env.actor,
-                    "type": env.type.value,
-                    "payload_json": _canonical_payload(dict(env.payload)),
-                    "dedupe_key": env.dedupe_key,
-                },
-            )
-            return next_seq
-
-        result: int = _append_txn(transaction, envelope)
-        return result
+        return self._event_log.append(envelope)
 
     def events(self, deal_id: str) -> list[AuditRecord]:
-        docs = (
-            self._events_collection(deal_id)
-            .order_by("seq", direction=firestore.Query.ASCENDING)
-            .stream()
-        )
-        out: list[AuditRecord] = []
-        for doc in docs:
-            d: dict[str, Any] = doc.to_dict() or {}
-            out.append(
-                AuditRecord(
-                    event_id=str(d["event_id"]),
-                    deal_id=str(d["deal_id"]),
-                    ts=d["ts"],
-                    seq=int(d["seq"]),
-                    actor=str(d["actor"]),
-                    type=str(d["type"]),
-                    payload_json=str(d["payload_json"]),
-                    dedupe_key=str(d["dedupe_key"]),
-                )
-            )
-        return out
+        return self._event_log.events(deal_id)
