@@ -24,6 +24,7 @@ keyfile*.json
 # Local tool state
 .codegraph/
 .omo/
+opencode.json
 
 # OS noise
 .DS_Store

@@ -7,10 +7,13 @@ requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Diligence Room" }]
 dependencies = [
+    "fastapi>=0.115",
     "google-adk>=1.5.0",
-    "google-cloud-aiplatform[adk,agent-engines]>=1.100.0",
+    "google-cloud-aiplatform[adk,agent_engines]>=1.100.0",
+    "google-cloud-firestore>=2.16",
     "google-cloud-pubsub>=2.21",
     "google-genai>=1.5.0",
+    "uvicorn>=0.30",
 ]
 
 [build-system]
@@ -39,6 +42,7 @@ packages = [
 [dependency-groups]
 dev = [
     "fpdf2>=2.7",
+    "httpx>=0.27",
     "mypy>=1.11",
     "openpyxl>=3.1",
     "pre-commit>=3.7",
