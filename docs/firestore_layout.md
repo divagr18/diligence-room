@@ -45,9 +45,16 @@ partitions (D3-M3).
 
 Envelope `{event_id, deal_id, ts, seq, actor, type, payload_json}`. Writes are
 append-only; `seq` is monotonic per deal (D3-M4). Immutable by convention and
-later retention policy (§7.8).
+later retention policy (§7.8). Documents also store `dedupe_key` — the
+envelope's idempotency key for append deduplication (D6-M2).
 
-### `registry/agents/{agent_id}` — AgentManifest (`registry.models.AgentManifest`)
+### `agents/{agent_id}` — AgentManifest (`registry.models.AgentManifest`)
+
+Physical path note: the registry module stores manifests in the top-level
+`agents` collection (parallel to `deals/{deal_id}`). The earlier notation
+`registry/agents/{agent_id}` is a 3-segment path, which Firestore treats as a
+subcollection — documents require an even segment count — so the top-level
+`agents` collection is the physical home for manifests.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -65,7 +72,7 @@ later retention policy (§7.8).
 | last_security_review | timestamp \| null | |
 | created_at | timestamp | |
 
-### `registry/agents/{agent_id}/versions/{version}` — AgentVersion
+### `agents/{agent_id}/versions/{version}` — AgentVersion
 
 | Field | Type |
 |---|---|
@@ -90,7 +97,7 @@ never through a Firestore query (D3-M2 enforces, D3-M5 negative-tests).
 | `findings` | `deal_id ASC, status ASC, updated_at DESC` | open-items feed |
 | `findings` | `deal_id ASC, severity DESC, confidence DESC` | escalation ordering (Day 8) |
 | `events` | `deal_id ASC, seq ASC` | ordered replay / materialization |
-| `registry agents` | `approved ASC, deployment_status ASC` | registry listing (D2-M5) |
+| `agents` | `approved ASC, deployment_status ASC` | registry listing (D2-M5) |
 
 Single-field indexes on `severity`, `status`, `workstream`, `approved` are
 auto-created by Firestore.
