@@ -88,7 +88,7 @@ def plan_data_room(deal_id: str, project_number: str) -> list[list[str]]:
       1. Create the Pub/Sub topic.
       2. Create US bucket.
       3. Create EU bucket.
-      4. IAM grant: roles/pubsub.publisher → GCS service account on the topic.
+      4. IAM grant: roles/pubsub.publisher to the GCS service account on the topic.
       5. OBJECT_FINALIZE notification per bucket.
       6. Pull subscription on the topic.
     """
@@ -204,7 +204,7 @@ def ensure_notification(bucket: str, topic: str, project: str) -> None:
         print(f"    notification already present on gs://{bucket} - ok")
         return
     run_gcloud(plan_notification_args(bucket, topic) + [f"--project={project}"])
-    print(f"    created notification on gs://{bucket} → {topic}")
+    print(f"    created notification on gs://{bucket} -> {topic}")
 
 
 def ensure_subscription(topic: str, subscription: str, project: str) -> None:
@@ -217,7 +217,7 @@ def ensure_subscription(topic: str, subscription: str, project: str) -> None:
         print(f"    subscription {subscription} already exists - ok")
         return
     run_gcloud(plan_subscription_args(topic, subscription))
-    print(f"    created subscription {subscription} → {topic}")
+    print(f"    created subscription {subscription} -> {topic}")
 
 
 # --------------------------------------------------------------------------
