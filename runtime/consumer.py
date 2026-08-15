@@ -31,7 +31,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from google.cloud import firestore
 
@@ -105,10 +105,28 @@ class PubSubPullSource:
                     return
                 ack_ids: list[str] = []
                 for received_message in received:
-                    payload = json.loads(bytes(received_message.message.data).decode("utf-8"))
+                    payload = _normalize_gcs_notification(received_message.message)
                     yield str(received_message.ack_id), payload
                     ack_ids.append(str(received_message.ack_id))
                 client.acknowledge(request={"subscription": self._subscription, "ack_ids": ack_ids})
+
+
+def _normalize_gcs_notification(message: Any) -> dict[str, object]:
+    """Merge the live GCS notification into the flat payload contract.
+
+    Live GCS bucket notifications deliver the storage-object resource JSON in
+    ``message.data`` (has ``name``/``bucket``/``contentType``) but carry
+    ``eventType`` in ``message.attributes``. The offline fixtures and
+    ``bucket_notify.parse_notification`` expect a single flat mapping, so the
+    attribute is folded in here.
+    """
+    data = json.loads(bytes(message.data).decode("utf-8"))
+    attributes = dict(message.attributes or {})
+    payload = dict(data)
+    event_type = attributes.get("eventType")
+    if event_type is not None and "eventType" not in payload:
+        payload["eventType"] = event_type
+    return payload
 
 
 class AgentInvoker(Protocol):

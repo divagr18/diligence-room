@@ -1,0 +1,95 @@
+# D2 Live Gate Evidence — Day-2 gate chain on LIVE GCP (captured 2026-08-16)
+
+Project: diligence-room (910285417505), region us-central1 / Firestore nam5.
+Project was undeleted for this gate, run end-to-end live, and torn down again
+afterwards (see d2-teardown.txt).
+
+## 1. Data room provisioned (infra/data_room.py --confirm-live)
+
+```
+created topic deal-events
+created bucket gs://diligence-room-dataroom-deal-falcon-us (us-central1)
+created bucket gs://diligence-room-dataroom-deal-falcon-eu (europe-west1)
+IAM grant serviceAccount:service-910285417505@gs-project-accounts.iam.gserviceaccount.com -> roles/pubsub.publisher (on deal-events)
+created notification on gs://diligence-room-dataroom-deal-falcon-us -> deal-events
+created notification on gs://diligence-room-dataroom-deal-falcon-eu -> deal-events
+created subscription deal-events-sub -> deal-events
+Data room ready for deal-falcon.
+```
+
+Verified via gcloud: `pubsub topics describe deal-events`,
+`subscriptions describe deal-events-sub` (topic wired),
+`storage buckets list` (US-CENTRAL1 + EUROPE-WEST1 pair),
+`pubsub topics get-iam-policy deal-events` (GCS P4SA = pubsub.publisher),
+`storage buckets notifications list` (event_types=[OBJECT_FINALIZE], payload JSON_API_V1).
+
+Note: the GCS project service agent (gs-project-accounts) needed propagation
+time after the project undelete before the IAM binding was accepted.
+
+## 2. Deal workspace provisioned (live Firestore)
+
+```
+deal-falcon provisioned in LIVE Firestore
+exists: True | fields: created_at, deal_id, deal_type, expected_window_days,
+name, policy_profile_id, regions, status, target
+```
+
+## 3. Hello agent deployed + async invoke (SA6, also Day-1 gates M6/M7)
+
+```
+Deployed: projects/910285417505/locations/us-central1/reasoningEngines/5096132490892935168
+invoke -> Session: 4459257903970254848
+Agent response: 'The echoed text is: diligence-room-day1-smoke'
+PASS: deployed agent answered async with the echo marker
+```
+
+Model facts verified live: gemini-3.5-flash is served ONLY from the `global`
+location (regional endpoints return 404; probe tested us-central1/us-east1/
+us-east5/europe-west1/us-west1). Agent Engine runs in us-central1 and receives
+GOOGLE_CLOUD_LOCATION=global via env_vars (GOOGLE_CLOUD_PROJECT is reserved).
+Local smoke: `[smoke] PASS` (echo tool called + marker in response).
+
+## 4. Upload -> notification -> consumer -> audit + deal-state + agent (SA7)
+
+```
+$ gcloud storage cp data/acme_robotics/contract_customer_x.pdf \
+    gs://diligence-room-dataroom-deal-falcon-us/
+```
+
+Live consumer (runtime/consumer.py --confirm-live --watch):
+
+```
+Session: 6669399421102325760          <- hello agent invoked on Agent Engine
+processed=1 duplicates=1 skipped=0    <- one notification processed, one redelivery deduped
+```
+
+Firestore state after processing (live read):
+
+```
+documents_ingested: 1
+last_document_id: contract_customer_x.pdf
+last_ingested_at: 2026-08-15 23:07:15.267532+00:00
+event count: 1
+seq 1 | document.ingested |
+  {"bucket":"diligence-room-dataroom-deal-falcon-us","content_type":"application/pdf",
+   "document_id":"contract_customer_x.pdf"} | dedupe: 32b84db61414f947...
+```
+
+Integration fix found by the live run (not catchable offline): GCS bucket
+notifications carry eventType in message ATTRIBUTES while the storage-object
+JSON in message.data carries name/bucket/contentType. PubSubPullSource now
+normalizes both into the flat payload contract (`_normalize_gcs_notification`).
+
+## 5. Duplicate idempotency (re-upload same object)
+
+```
+$ gcloud storage cp data/acme_robotics/contract_customer_x.pdf \
+    gs://diligence-room-dataroom-deal-falcon-us/   # overwrite -> new notification
+consumer -> processed=0 duplicates=1 skipped=0
+documents_ingested (expect still 1): 1
+event count (expect still 1): 1
+```
+
+The re-upload produced a notification with the same dedupe key; the consumer
+recognized the existing audit record and skipped re-processing. Deal state and
+event log are unchanged.
