@@ -137,7 +137,17 @@ def seed_registry(store: AgentRegistryStore, now: datetime | None = None) -> int
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Seed the agent registry.")
     parser.add_argument("--project", default="diligence-room")
+    parser.add_argument(
+        "--confirm-live",
+        action="store_true",
+        default=False,
+        help="Required to actually write to Firestore (write-only guard).",
+    )
     args = parser.parse_args(argv)
+
+    if not args.confirm_live:
+        print("WRITE-ONLY: this script refuses to write to live Firestore without --confirm-live.")
+        sys.exit("Refused: pass --confirm-live to acknowledge live registry seeding.")
 
     from google.cloud import firestore
 

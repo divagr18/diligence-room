@@ -10,6 +10,7 @@ from google.cloud import firestore
 
 from registry.api import create_app
 from registry.seed import SEED_MANIFESTS, seed_registry
+from registry.seed import main as seed_main
 from registry.store import AgentRegistryStore
 
 EXPECTED_SEED_VERSIONS: dict[str, str] = {
@@ -145,6 +146,12 @@ class TestRegistryApi:
         client = TestClient(create_app(seeded_store))
         response = client.patch("/agents/ghost/approval", json={"approved": True})
         assert response.status_code == 404
+
+
+class TestSeedCli:
+    def test_seed_cli_refuses_without_confirm_live(self) -> None:
+        with pytest.raises(SystemExit, match="confirm"):
+            seed_main([])
 
 
 class TestManifestValidation:
