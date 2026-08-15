@@ -1,0 +1,30 @@
+# .gcloudignore
+# Keeps the Cloud Run source upload small (only what `main:app` needs).
+
+# VCS and caches
+.git/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.codegraph/
+.omo/
+
+# Developer environment
+.venv/
+venv/
+env/
+
+# Non-runtime directories
+docs/evidence/
+data/
+tests/
+scripts/
+
+# Non-runtime files
+BUILD_PLAN.md
+*.md
+
+# OS / editor leftovers
+__pycache__/
+*.pyc
+.DS_Store

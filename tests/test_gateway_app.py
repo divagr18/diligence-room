@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from gateway.app import create_app
+from main import app as main_app
 
 
 @pytest.fixture()
@@ -51,3 +52,10 @@ def test_request_log_captures_structured_record(
     assert "GET" in message
     assert "/whoami" in message
     assert "200" in message
+
+
+def test_root_main_app_serves_healthz() -> None:
+    """The root ``main:app`` wired for Cloud Run buildpack must serve /healthz."""
+    response = TestClient(main_app).get("/healthz")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "service": "gateway"}
