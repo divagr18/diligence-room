@@ -49,6 +49,7 @@ dev = [
     "pypdf>=4.0",
     "pytest>=8.0",
     "ruff>=0.5",
+    "types-openpyxl>=3.1",
 ]
 
 [tool.ruff]

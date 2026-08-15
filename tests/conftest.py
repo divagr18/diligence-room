@@ -12,6 +12,7 @@ import contextlib
 import os
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 import uuid
@@ -22,6 +23,10 @@ import pytest
 from google.cloud import firestore
 
 from infra.bootstrap_gcp import _gcloud_executable
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 _EMULATOR_STARTUP_DEADLINE_S = 90.0
 
