@@ -105,6 +105,11 @@ _CLASS_VOCABULARIES: dict[str, tuple[str, ...]] = {
 _HEAVY_PII_THRESHOLD = 3
 
 
+def injection_markers(text: str) -> tuple[str, ...]:
+    """Names of injection/exfiltration patterns present in *text*."""
+    return tuple(name for name, pattern in _INJECTION_PATTERNS if pattern.search(text))
+
+
 class FakeSentinel:
     """Deterministic offline stand-in; clearly not the Gemma model."""
 
@@ -140,7 +145,7 @@ class FakeSentinel:
         return tuple(sorted(spans, key=lambda span: span.start))
 
     def injection_tripwire(self, text: str) -> TripwireVerdict:
-        hits = tuple(name for name, pattern in _INJECTION_PATTERNS if pattern.search(text))
+        hits = injection_markers(text)
         if hits:
             return TripwireVerdict(True, "instruction-pattern detected", hits)
         return TripwireVerdict(False, "clean", ())
