@@ -1,6 +1,7 @@
-"""Event bus contract tests (BUILD_PLAN D2-M1, vision §7.2).
+"""Event bus contract tests (BUILD_PLAN D2-M1 + D4-M7, vision §7.2).
 
-Covers: the four Day-2 event types, the envelope contract
+Covers: the Day-2 event types plus the Day-4 pipeline additions
+(document.parsed / document.routed), the envelope contract
 {event_id, deal_id, ts, actor, type, payload, dedupe_key}, deterministic
 dedupe keys (idempotency = event hash, D6-M2), JSON round-trip, and the
 publisher interface with a Pub/Sub implementation tested against a stub client.
@@ -24,9 +25,11 @@ NOW = datetime(2026, 8, 15, 12, 0, tzinfo=UTC)
 
 
 class TestEventType:
-    def test_day2_event_types_exact(self) -> None:
+    def test_event_types_exact(self) -> None:
         assert {et.value for et in EventType} == {
             "document.ingested",
+            "document.parsed",
+            "document.routed",
             "finding.created",
             "gateway.decision",
             "security.event",

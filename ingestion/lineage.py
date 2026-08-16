@@ -62,7 +62,10 @@ def _existing_for_key(
     # Collection scan is intentional: hackathon-scale deals have few document
     # versions per logical key; the chain must stay consistent under replays.
     records: list[LineageRecord] = []
-    for snapshot in _collection(client, deal_id).where("logical_key", "==", logical_key).stream():
+    query = _collection(client, deal_id).where(
+        filter=firestore.FieldFilter("logical_key", "==", logical_key)
+    )
+    for snapshot in query.stream():
         data = snapshot.to_dict()
         if data:
             records.append(_to_record(snapshot.id, data))

@@ -18,6 +18,8 @@ from enum import StrEnum
 
 class EventType(StrEnum):
     DOCUMENT_INGESTED = "document.ingested"
+    DOCUMENT_PARSED = "document.parsed"
+    DOCUMENT_ROUTED = "document.routed"
     FINDING_CREATED = "finding.created"
     GATEWAY_DECISION = "gateway.decision"
     SECURITY_EVENT = "security.event"

@@ -134,6 +134,11 @@ class AgentInvoker(Protocol):
         """Send the ingestion message to the deal's hello agent; return its text."""
 
 
+class IngestionHook(Protocol):
+    def ingest(self, envelope: EventEnvelope) -> None:
+        """Run the Day-4 ingestion pipeline for an ingested document."""
+
+
 class EchoInvoker:
     """Offline default: echoes the message back."""
 
@@ -169,11 +174,13 @@ class DealEventConsumer:
         source: MessageSource,
         invoker: AgentInvoker,
         audit: DealEventAuditLog,
+        ingestion_hook: IngestionHook | None = None,
     ) -> None:
         self._client = client
         self.source = source
         self._invoker = invoker
         self._audit = audit
+        self._ingestion_hook = ingestion_hook
 
     def process_notification(self, payload: Mapping[str, object]) -> ProcessResult:
         try:
@@ -194,6 +201,8 @@ class DealEventConsumer:
 
         seq = self._audit.append(envelope)
         document_id = str(envelope.payload["document_id"])
+        if self._ingestion_hook is not None:
+            self._ingestion_hook.ingest(envelope)
         self._invoker.invoke(
             envelope.deal_id,
             f"Document ingested: {document_id} in deal {envelope.deal_id}. Echo to confirm.",
