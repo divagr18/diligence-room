@@ -16,6 +16,7 @@ dependencies = [
     "google-genai>=1.5.0",
     "openpyxl>=3.1",
     "opentelemetry-api>=1.25",
+    "opentelemetry-exporter-gcp-trace>=1.6",
     "opentelemetry-sdk>=1.25",
     "pillow>=10.3",
     "pypdf>=4.0",
@@ -97,6 +98,7 @@ module = [
     "google_cloud_aiplatform.*",
     "docx.*",
     "PIL.*",
+    "opentelemetry.exporter.cloud_trace.*",
 ]
 ignore_missing_imports = true
 
