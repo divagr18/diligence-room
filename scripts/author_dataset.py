@@ -595,6 +595,98 @@ def _save_docx_deterministic(document: DocxDocument, path: Path) -> None:
     path.write_bytes(fixed.getvalue())
 
 
+def write_amendment_2030(path: Path) -> None:
+    """Write Amendment No. 1 to the TitanBridge license agreement (D5-M5).
+
+    Amends Section 4 (Exclusivity) ONLY — extending the exclusivity
+    termination to 2030-06-30 — and ratifies every other term unchanged
+    (DATASET_PLAN hard rule). Lineage links to vendor_agreement_2027.pdf via
+    ingestion.lineage.link_supersedes (different filename, explicit chain).
+    """
+    pdf = FPDF()
+    pdf.creation_date = _PINNED_DATE_UTC
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(
+        0,
+        10,
+        "AMENDMENT NO. 1 TO SOFTWARE LICENSE AGREEMENT",
+        new_x=XPos.LMARGIN,
+        new_y=YPos.NEXT,
+        align="C",
+    )
+    pdf.ln(4)
+
+    intro = (
+        'This Amendment No. 1 (this "Amendment") is entered into as of July 1, '
+        '2026, by and between TitanBridge Systems, Inc. ("Licensor") and Acme '
+        'Robotics, Inc. ("Licensee"), and amends that certain Software License '
+        "Agreement dated July 1, 2026, by and between the parties (the "
+        '"Agreement").'
+    )
+    sections: list[tuple[str, str]] = [
+        (
+            "1. Amendment of Section 4 (Exclusivity)",
+            "Section 4 (Exclusivity) of the Agreement is hereby amended as "
+            "follows: the exclusivity granted to Licensee within the field of "
+            "autonomous logistics orchestration in North America is extended, and "
+            "such exclusivity now terminates on June 30, 2030 (2030-06-30), in "
+            "place of the date set forth in Section 4 of the Agreement.",
+        ),
+        (
+            "2. Ratification",
+            "Except as expressly set forth in Section 1 of this Amendment, all "
+            "other terms, conditions, and provisions of the Agreement remain "
+            "unchanged and continue in full force and effect. This Amendment "
+            "modifies only Section 4 (Exclusivity) of the Agreement and no other "
+            "provision.",
+        ),
+    ]
+    pdf.set_font("Helvetica", "", _SECTION_FONT_SIZE)
+    pdf.multi_cell(0, _LINE_HEIGHT, intro, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.ln(2)
+    for heading, body in sections:
+        pdf.set_font("Helvetica", "B", _SECTION_FONT_SIZE)
+        pdf.multi_cell(0, _LINE_HEIGHT, heading, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font("Helvetica", "", _SECTION_FONT_SIZE)
+        pdf.multi_cell(0, _LINE_HEIGHT, body, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.ln(2)
+
+    pdf.ln(4)
+    pdf.multi_cell(
+        0,
+        _LINE_HEIGHT,
+        "IN WITNESS WHEREOF, the Parties have executed this Amendment as of the date above.",
+        new_x=XPos.LMARGIN,
+        new_y=YPos.NEXT,
+    )
+    pdf.ln(8)
+    pdf.multi_cell(
+        0, _LINE_HEIGHT, "TITANBRIDGE SYSTEMS, INC.", new_x=XPos.LMARGIN, new_y=YPos.NEXT
+    )
+    pdf.multi_cell(
+        0,
+        _LINE_HEIGHT,
+        "By: ______________________  Title: Chief Commercial Officer",
+        new_x=XPos.LMARGIN,
+        new_y=YPos.NEXT,
+    )
+    pdf.ln(4)
+    pdf.multi_cell(0, _LINE_HEIGHT, "ACME ROBOTICS, INC.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.multi_cell(
+        0,
+        _LINE_HEIGHT,
+        "By: ______________________  Title: Chief Legal Officer",
+        new_x=XPos.LMARGIN,
+        new_y=YPos.NEXT,
+    )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pdf.output(str(path))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Regenerate the deterministic Acme Robotics dataset artifacts in place."
@@ -605,6 +697,7 @@ def main(argv: list[str] | None = None) -> int:
     roster_path = DATA_DIR / "hr_roster_acme.xlsx"
     tech_path = DATA_DIR / "tech_inventory.pdf"
     vendor_path = DATA_DIR / "vendor_agreement_2027.pdf"
+    amendment_path = DATA_DIR / "amendment_2030.pdf"
     scanned_path = SCENARIOS_DIR / "scanned_invoice.pdf"
     memo_path = SCENARIOS_DIR / "memo_fleet_operations.docx"
     injection_path = SCENARIOS_DIR / "injection_probe.docx"
@@ -613,6 +706,7 @@ def main(argv: list[str] | None = None) -> int:
     write_hr_roster(roster_path)
     write_tech_inventory(tech_path)
     write_vendor_agreement_2027(vendor_path)
+    write_amendment_2030(amendment_path)
     write_scanned_invoice(scanned_path)
     write_scenario_memo(memo_path)
     write_scenario_injection(injection_path)
@@ -621,6 +715,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"wrote {roster_path}")
     print(f"wrote {tech_path}")
     print(f"wrote {vendor_path}")
+    print(f"wrote {amendment_path}")
     print(f"wrote {scanned_path}")
     print(f"wrote {memo_path}")
     print(f"wrote {injection_path}")

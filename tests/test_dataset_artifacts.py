@@ -16,6 +16,7 @@ from pypdf import PdfReader
 from scripts.author_dataset import (
     MERIDIAN_REVENUE,
     TOTAL_REVENUE,
+    write_amendment_2030,
     write_contract_customer_x,
     write_financials_fy27,
     write_hr_roster,
@@ -227,6 +228,35 @@ class TestRegenerationDeterminism:
         regenerated = tmp_path / "hr_roster_acme.xlsx"
         write_hr_roster(regenerated)
         assert regenerated.read_bytes() == HR_ROSTER_XLSX.read_bytes()
+
+
+AMENDMENT_PDF = DATA_DIR / "amendment_2030.pdf"
+
+
+class TestAmendment2030:
+    def test_exclusivity_extended_to_2030(self) -> None:
+        text = _normalized_pdf_text(AMENDMENT_PDF)
+        assert "2030-06-30" in text
+
+    def test_amends_section_4_only(self) -> None:
+        text = _normalized_pdf_text(AMENDMENT_PDF)
+        assert "Section 4" in text
+        assert "Exclusivity" in text
+        assert "full force and effect" in text
+
+    def test_references_original_agreement(self) -> None:
+        text = _normalized_pdf_text(AMENDMENT_PDF)
+        assert "SOFTWARE LICENSE AGREEMENT" in text
+        assert "TitanBridge" in text
+
+    def test_original_vendor_agreement_unchanged(self) -> None:
+        vendor_text = _normalized_pdf_text(VENDOR_AGREEMENT_PDF)
+        assert "2027-06-30" in vendor_text
+
+    def test_regeneration_byte_identical(self, tmp_path: Path) -> None:
+        regenerated = tmp_path / "amendment_2030.pdf"
+        write_amendment_2030(regenerated)
+        assert regenerated.read_bytes() == AMENDMENT_PDF.read_bytes()
 
 
 class TestDatasetScriptCli:
