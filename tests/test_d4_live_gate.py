@@ -32,3 +32,16 @@ class TestLiveGateGuards:
         for name in required_env():
             monkeypatch.setenv(name, "set")
         assert validate_live_env() == ()
+
+    def test_offline_sentinel_mode_drops_key_requirements(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        names = required_env(offline_sentinel=True)
+        assert "GOOGLE_API_KEY" not in names
+        assert "DILIGENCE_GEMMA_ENABLED" not in names
+        assert "DILIGENCE_FLASH_CLASSIFIER_ENABLED" in names
+        for name in names:
+            monkeypatch.setenv(name, "set")
+        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+        monkeypatch.delenv("DILIGENCE_GEMMA_ENABLED", raising=False)
+        assert validate_live_env(offline_sentinel=True) == ()

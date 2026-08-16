@@ -37,12 +37,18 @@ _REQUIRED_ENV: tuple[str, ...] = (
 )
 
 
-def required_env() -> tuple[str, ...]:
+def required_env(offline_sentinel: bool = False) -> tuple[str, ...]:
+    if offline_sentinel:
+        return tuple(
+            name
+            for name in _REQUIRED_ENV
+            if name not in ("GOOGLE_API_KEY", "DILIGENCE_GEMMA_ENABLED")
+        )
     return _REQUIRED_ENV
 
 
-def validate_live_env() -> tuple[str, ...]:
-    return tuple(name for name in _REQUIRED_ENV if not os.environ.get(name))
+def validate_live_env(offline_sentinel: bool = False) -> tuple[str, ...]:
+    return tuple(name for name in required_env(offline_sentinel) if not os.environ.get(name))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -55,6 +61,14 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="required: run against real GCP (models, Firestore, Cloud Trace)",
     )
+    parser.add_argument(
+        "--offline-sentinel",
+        action="store_true",
+        help=(
+            "red path: sentinel tier on the deterministic fake when the Gemini "
+            "Developer API key is unavailable (disclosed in the evidence file)"
+        ),
+    )
     args = parser.parse_args(argv)
 
     if not args.confirm_live:
@@ -66,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         sys.exit(1)
-    missing = validate_live_env()
+    missing = validate_live_env(offline_sentinel=args.offline_sentinel)
     if missing:
         print("Refusing: missing live-window env: " + ", ".join(missing), file=sys.stderr)
         sys.exit(1)
@@ -76,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
 
     from ingestion.classifier import FlashClassifier
     from ingestion.pipeline import IngestContext, ingest_blob
-    from ingestion.sentinel import GemmaSentinel
+    from ingestion.sentinel import FakeSentinel, GemmaSentinel, SentinelModel
     from observability.tracing import setup_tracing, tracer_from
     from runtime.events import InMemoryPublisher
 
@@ -84,10 +98,20 @@ def main(argv: list[str] | None = None) -> int:
     # The gcp-trace exporter ships untyped; behavior is exercised in the live window.
     exporter = CloudTraceSpanExporter(project_id=project)  # type: ignore[no-untyped-call]
     provider = setup_tracing(service_name="diligence-room-day4-live", exporter=exporter)
+    sentinel: SentinelModel
+    if args.offline_sentinel:
+        sentinel = FakeSentinel()
+        print(
+            "sentinel_mode=fake (RED PATH: Gemini Developer API rejected the "
+            "project-created API key with API_KEY_INVALID; disclosed in evidence)"
+        )
+    else:
+        sentinel = GemmaSentinel()
+        print("sentinel_mode=gemma-live (hosted Gemini Developer API)")
     context = IngestContext(
         client=firestore.Client(project=project),
         publisher=InMemoryPublisher(),
-        sentinel=GemmaSentinel(),
+        sentinel=sentinel,
         classifier=FlashClassifier(),
         tracer=tracer_from(provider),
     )
