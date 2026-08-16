@@ -19,14 +19,19 @@ from scripts.author_dataset import (
     write_contract_customer_x,
     write_financials_fy27,
     write_hr_roster,
-    write_tech_inventory_draft,
+    write_scanned_invoice,
+    write_tech_inventory,
+    write_vendor_agreement_2027,
 )
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "acme_robotics"
+SCENARIOS_DIR = Path(__file__).resolve().parent.parent / "data" / "scenarios"
 CONTRACT_PDF = DATA_DIR / "contract_customer_x.pdf"
 FINANCIALS_XLSX = DATA_DIR / "financials_fy27.xlsx"
 HR_ROSTER_XLSX = DATA_DIR / "hr_roster_acme.xlsx"
 TECH_INVENTORY_PDF = DATA_DIR / "tech_inventory.pdf"
+VENDOR_AGREEMENT_PDF = DATA_DIR / "vendor_agreement_2027.pdf"
+SCANNED_INVOICE_PDF = SCENARIOS_DIR / "scanned_invoice.pdf"
 
 ROSTER_DATE = date(2026, 8, 14)
 WHITFIELD_DEPARTURE = date(2026, 10, 13)
@@ -139,16 +144,89 @@ class TestHrRosterAndTechInventory:
         write_hr_roster(regenerated)
         assert self._whitfield_row(regenerated) == self._whitfield_row(HR_ROSTER_XLSX)
 
-    def test_tech_inventory_flagged_draft_with_titanbridge(self) -> None:
+    def test_tech_inventory_final_status_present_and_draft_gone(self) -> None:
         text = _normalized_pdf_text(TECH_INVENTORY_PDF)
-        assert "DRAFT" in text
+        assert "FINAL" in text
+        assert "DRAFT" not in text
         assert "TitanBridge 4.1" in text
         assert "Meridian" in text
 
     def test_tech_inventory_regeneration_byte_identical(self, tmp_path: Path) -> None:
         regenerated = tmp_path / "tech_inventory.pdf"
-        write_tech_inventory_draft(regenerated)
+        write_tech_inventory(regenerated)
         assert regenerated.read_bytes() == TECH_INVENTORY_PDF.read_bytes()
+
+
+class TestTechInventoryFactStability:
+    """The TitanBridge fact must survive DRAFT->FINAL byte-identically."""
+
+    TITANBRIDGE_FACTS = (
+        (
+            "Runs on TitanBridge 4.1 (vendor end-of-life 2026-03; no support "
+            "contract). Serves the Meridian Logistics, Inc. account. Migration "
+            "to a supported runtime is estimated at 9-12 months."
+        ),
+        (
+            "Proprietary computer-vision pipeline; patents assigned to Acme "
+            "Robotics, Inc. Open-source components under Apache-2.0."
+        ),
+        "Firmware maintained in-house; hardware refresh due FY28.",
+    )
+
+    def test_entry_texts_present_unchanged(self) -> None:
+        text = _normalized_pdf_text(TECH_INVENTORY_PDF)
+        for fact in self.TITANBRIDGE_FACTS:
+            assert " ".join(fact.split()) in text
+
+
+class TestVendorAgreement2027:
+    def test_titanbridge_license_present(self) -> None:
+        text = _normalized_pdf_text(VENDOR_AGREEMENT_PDF)
+        assert "TitanBridge" in text
+        assert "Acme Robotics" in text
+        assert "TitanBridge Systems" in text
+
+    def test_exclusivity_ends_2027_06_30(self) -> None:
+        text = _normalized_pdf_text(VENDOR_AGREEMENT_PDF)
+        assert "2027-06-30" in text
+
+    def test_clause_numbering_present(self) -> None:
+        text = _normalized_pdf_text(VENDOR_AGREEMENT_PDF)
+        assert "4. Exclusivity" in text
+
+    def test_eol_acknowledged(self) -> None:
+        text = _normalized_pdf_text(VENDOR_AGREEMENT_PDF)
+        assert "end-of-life" in text
+
+    def test_regeneration_byte_identical(self, tmp_path: Path) -> None:
+        regenerated = tmp_path / "vendor_agreement_2027.pdf"
+        write_vendor_agreement_2027(regenerated)
+        assert regenerated.read_bytes() == VENDOR_AGREEMENT_PDF.read_bytes()
+
+
+class TestScannedInvoice:
+    def test_image_only_pdf_has_no_extractable_text(self) -> None:
+        reader = PdfReader(str(SCANNED_INVOICE_PDF))
+        assert reader.pages
+        for page in reader.pages:
+            assert not (page.extract_text() or "").strip()
+
+    def test_regeneration_byte_identical(self, tmp_path: Path) -> None:
+        regenerated = tmp_path / "scanned_invoice.pdf"
+        write_scanned_invoice(regenerated)
+        assert regenerated.read_bytes() == SCANNED_INVOICE_PDF.read_bytes()
+
+
+class TestRegenerationDeterminism:
+    def test_financials_regenerate_byte_identical(self, tmp_path: Path) -> None:
+        regenerated = tmp_path / "financials_fy27.xlsx"
+        write_financials_fy27(regenerated)
+        assert regenerated.read_bytes() == FINANCIALS_XLSX.read_bytes()
+
+    def test_hr_roster_regenerates_byte_identical(self, tmp_path: Path) -> None:
+        regenerated = tmp_path / "hr_roster_acme.xlsx"
+        write_hr_roster(regenerated)
+        assert regenerated.read_bytes() == HR_ROSTER_XLSX.read_bytes()
 
 
 class TestDatasetConsistency:

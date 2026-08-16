@@ -31,12 +31,13 @@ All data is synthetic; no real company, person, or figure is represented.
 | 1 | `contract_customer_x.pdf` | native PDF | Legal | Meridian CoC termination right (§11.3); 3-year master services term | 2 | D3 finding smoke, Day-5 governed query, Day-8 keystone |
 | 2 | `financials_fy27.xlsx` | XLSX | Finance | Meridian = $8,893,800 of $48,600,000 projected FY27 revenue = 18.3% | 2 | Day-5 gateway aggregate, Day-8 keystone |
 | 3 | `hr_roster_acme.xlsx` | XLSX | HR | Dana Whitfield (VP Customer Success, Meridian account owner) resignation effective in 60 days | **finalized 3 (D3-M7)** (authored D2-M6) | Day-8 keystone |
-| 4 | `tech_inventory.pdf` | native PDF | IP/Tech | Meridian-serving fleet-orchestration subsystem runs on TitanBridge 4.1 (vendor EOL, no support contract) | **DRAFT authored D2 (D2-M6)**; finalized 4 (D4-M3) | Day-8 keystone |
+| 4 | `tech_inventory.pdf` | native PDF | IP/Tech | Meridian-serving fleet-orchestration subsystem runs on TitanBridge 4.1 (vendor EOL, no support contract) | **finalized 4 (D4-M3)** (authored D2; entry texts byte-identical to DRAFT) | Day-8 keystone |
 | 5 | `vendor_agreement_2027.pdf` | native PDF | Legal/IP | TitanBridge license: exclusivity ends 2027-06-30 | 4 (D4-M3) | Day-5 amendment lineage |
 | 6 | `amendment_2030.pdf` | native PDF | Legal | Extends TitanBridge exclusivity to 2030-06-30; lineage-linked to #5; tests update-not-duplicate (vision §16 Day 7) | 5 (D5-M5) | D10 memory test, Day-7 scenario beat |
 | 7 | malicious batch #1 (×5) | mixed | Armor/Red-team | injection ×2, exfiltration ×2, obfuscated injection ×1 | 6 (D6-M6) | D7 quarantine beat |
 | 8 | attacks wave 2 (×4) + noise (×3) | mixed | Armor + ingestion realism | +2 injection, +1 exfil, +1 priv-esc; email export / scan / junk spreadsheet | 10 (D10-M5) | scorecard realism |
 | 9 | attack wave 3 (×6) | mixed | Armor | completes the 20-attack ledger (8/5/4/3) | 12 (D12-M3) | final scorecard |
+| 10 | `../scenarios/scanned_invoice.pdf` | image-only PDF | Ingestion/OCR | deterministic scanned fixture (no text layer) for the Day-4 mixed bundle | 4 (D4-M3) | D4-M8 mixed bundle; live Document AI OCR route |
 
 ## Document authoring rules
 

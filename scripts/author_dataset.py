@@ -1,4 +1,4 @@
-"""Deterministic synthetic dataset generator (BUILD_PLAN D2-M4 + D2-M6 + D3-M7).
+"""Deterministic synthetic dataset generator (BUILD_PLAN D2-M4 + D2-M6 + D3-M7 + D4-M3).
 
 Produces the committed dataset artifacts carrying the keystone demo facts:
 
@@ -9,8 +9,13 @@ Produces the committed dataset artifacts carrying the keystone demo facts:
   Meridian Logistics is exactly 18.300% of the total.
 - ``hr_roster_acme.xlsx`` — finalized roster (D3-M7) with Dana
   Whitfield's resignation dated roster-date + 60 days.
-- ``tech_inventory.pdf`` — DRAFT asset inventory (finalized D4-M3) with the
-  TitanBridge 4.1 end-of-life dependency.
+- ``tech_inventory.pdf`` — FINAL asset inventory (finalized D4-M3) with the
+  TitanBridge 4.1 end-of-life dependency (entry texts byte-identical to the
+  DRAFT authored on Day 2).
+- ``vendor_agreement_2027.pdf`` — TitanBridge 4.1 license agreement (D4-M3);
+  exclusivity terminates 2027-06-30 (the Day-5 amendment target).
+- ``../scenarios/scanned_invoice.pdf`` — deterministic image-only PDF
+  (no text layer) used by the Day-4 mixed bundle to exercise the OCR route.
 
 All writers are deterministic (pinned metadata timestamps, no formulas, no
 runtime clock reads) so regeneration yields identical content; the tests in
@@ -19,15 +24,20 @@ tests/test_dataset_artifacts.py pin the planted facts.
 
 from __future__ import annotations
 
+import re
+import zipfile
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from io import BytesIO
 from pathlib import Path
 
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 from openpyxl import Workbook
+from PIL import Image, ImageDraw, ImageFont
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "acme_robotics"
+SCENARIOS_DIR = Path(__file__).resolve().parent.parent / "data" / "scenarios"
 
 _PINNED_DATE = datetime(2026, 7, 1, 9, 0, 0)
 _PINNED_DATE_UTC = datetime(2026, 7, 1, 9, 0, 0, tzinfo=UTC)
@@ -37,6 +47,36 @@ _WHITFIELD_DEPARTURE = _ROSTER_DATE + timedelta(days=60)
 
 _SECTION_FONT_SIZE = 11
 _LINE_HEIGHT = 6
+_ZIP_PINNED_DATE = (2026, 7, 1, 9, 0, 0)
+_MODIFIED_RE = re.compile(rb"(<dcterms:modified[^>]*>)[^<]*(</dcterms:modified>)")
+_PINNED_MODIFIED = b"2026-07-01T09:00:00Z"
+
+
+def _save_workbook_deterministic(workbook: Workbook, path: Path) -> None:
+    """Save *workbook* byte-deterministically.
+
+    openpyxl stamps the current time into zip entries and rewrites
+    ``dcterms:modified`` at save time even when properties are pinned; both
+    are normalized here so regeneration is byte-identical across processes.
+    """
+    buffer = BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    fixed = BytesIO()
+    with (
+        zipfile.ZipFile(buffer) as archive,
+        zipfile.ZipFile(fixed, "w", zipfile.ZIP_DEFLATED) as output,
+    ):
+        for item in archive.infolist():
+            info = zipfile.ZipInfo(item.filename, date_time=_ZIP_PINNED_DATE)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = item.external_attr
+            data = archive.read(item.filename)
+            if item.filename == "docProps/core.xml":
+                data = _MODIFIED_RE.sub(rb"\g<1>" + _PINNED_MODIFIED + rb"\g<2>", data)
+            output.writestr(info, data)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(fixed.getvalue())
 
 
 @dataclass(frozen=True)
@@ -248,8 +288,7 @@ def write_financials_fy27(path: Path) -> None:
         assumptions.append([note])
     assumptions.column_dimensions["A"].width = 100
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    workbook.save(path)
+    _save_workbook_deterministic(workbook, path)
 
 
 def write_hr_roster(path: Path) -> None:
@@ -296,26 +335,30 @@ def write_hr_roster(path: Path) -> None:
         notes.append([note])
     notes.column_dimensions["A"].width = 100
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    workbook.save(path)
+    _save_workbook_deterministic(workbook, path)
 
 
-def write_tech_inventory_draft(path: Path) -> None:
-    """Write the synthetic technology asset inventory (draft; finalized D4-M3)."""
+def write_tech_inventory(path: Path) -> None:
+    """Write the synthetic technology asset inventory (FINAL, D4-M3).
+
+    Only status strings changed from the Day-2 DRAFT; the entry texts below
+    are byte-identical to the draft because the findings evidence gate quotes
+    them verbatim.
+    """
     pdf = FPDF()
     pdf.creation_date = _PINNED_DATE_UTC
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "TECHNOLOGY ASSET INVENTORY (DRAFT)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.cell(0, 10, "TECHNOLOGY ASSET INVENTORY (FINAL)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(4)
     pdf.set_font("Helvetica", "", _SECTION_FONT_SIZE)
     pdf.multi_cell(
         0,
         _LINE_HEIGHT,
         "Acme Robotics, Inc. - prepared for Project Falcon diligence. "
-        "Status: DRAFT, authored Day 2 (D2-M6); finalized Day 4 (D4-M3).",
+        "Status: FINAL, finalized Day 4 (D4-M3); authored Day 2 (D2-M6).",
         new_x=XPos.LMARGIN,
         new_y=YPos.NEXT,
     )
@@ -349,19 +392,177 @@ def write_tech_inventory_draft(path: Path) -> None:
     pdf.output(str(path))
 
 
+def write_vendor_agreement_2027(path: Path) -> None:
+    """Write the TitanBridge 4.1 license agreement (D4-M3).
+
+    Clause-numbered like the MSA so ingestion chunking yields clause
+    locators. Exclusivity terminates 2027-06-30 — the Day-5 amendment
+    (amendment_2030.pdf, authored on Day 5) extends ONLY that term.
+    """
+    pdf = FPDF()
+    pdf.creation_date = _PINNED_DATE_UTC
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(
+        0,
+        10,
+        "SOFTWARE LICENSE AGREEMENT",
+        new_x=XPos.LMARGIN,
+        new_y=YPos.NEXT,
+        align="C",
+    )
+    pdf.ln(4)
+
+    intro = (
+        'This Software License Agreement (this "Agreement") is entered into as of '
+        'July 1, 2026 (the "Effective Date") by and between TitanBridge Systems, Inc., '
+        'a Delaware corporation ("Licensor"), and Acme Robotics, Inc., a Delaware '
+        "corporation with its principal place of business at 400 Industrial Way, "
+        'Pittsburgh, Pennsylvania ("Licensee").'
+    )
+    sections: list[tuple[str, str]] = [
+        ("1. Definitions", "Capitalized terms have the meanings given in this Section 1."),
+        (
+            "2. License Grant",
+            "Licensor grants Licensee a non-exclusive, non-transferable license to "
+            "deploy and operate the TitanBridge 4.1 fleet-orchestration runtime in "
+            "support of Licensee's autonomous logistics workloads, including the "
+            "fleet-orchestration subsystem serving the Meridian Logistics, Inc. account.",
+        ),
+        (
+            "3. Term",
+            "The initial term of this Agreement is three (3) years from the Effective "
+            "Date, unless terminated earlier in accordance with Section 5.",
+        ),
+        (
+            "4. Exclusivity",
+            "Licensor grants Licensee exclusive rights to deploy TitanBridge 4.1 "
+            "within the field of autonomous logistics orchestration in North America. "
+            "This exclusivity terminates on June 30, 2027 (2027-06-30), after which "
+            "Licensor may license TitanBridge 4.1 to third parties in the same field.",
+        ),
+        (
+            "5. Support; End-of-Life",
+            "TitanBridge 4.1 reached vendor end-of-life in March 2026. Licensor "
+            "provides no support contract for TitanBridge 4.1 after the end-of-life "
+            "date, and the software is provided as-is for the remainder of the Term.",
+        ),
+        (
+            "6. Fees",
+            "Licensee shall pay the annual license fees set forth in the applicable "
+            "statement of work within thirty (30) days of invoice.",
+        ),
+        (
+            "7. General Provisions",
+            "This Agreement is governed by the laws of the State of Delaware. This "
+            "Agreement is the entire agreement of the parties regarding its subject "
+            "matter and supersedes all prior agreements and understandings.",
+        ),
+    ]
+    pdf.set_font("Helvetica", "", _SECTION_FONT_SIZE)
+    pdf.multi_cell(0, _LINE_HEIGHT, intro, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.ln(2)
+    for heading, body in sections:
+        pdf.set_font("Helvetica", "B", _SECTION_FONT_SIZE)
+        pdf.multi_cell(0, _LINE_HEIGHT, heading, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font("Helvetica", "", _SECTION_FONT_SIZE)
+        pdf.multi_cell(0, _LINE_HEIGHT, body, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.ln(2)
+
+    pdf.ln(4)
+    pdf.multi_cell(
+        0,
+        _LINE_HEIGHT,
+        "IN WITNESS WHEREOF, the Parties have executed this Agreement as of the Effective Date.",
+        new_x=XPos.LMARGIN,
+        new_y=YPos.NEXT,
+    )
+    pdf.ln(8)
+    pdf.multi_cell(
+        0, _LINE_HEIGHT, "TITANBRIDGE SYSTEMS, INC.", new_x=XPos.LMARGIN, new_y=YPos.NEXT
+    )
+    pdf.multi_cell(
+        0,
+        _LINE_HEIGHT,
+        "By: ______________________  Title: Chief Commercial Officer",
+        new_x=XPos.LMARGIN,
+        new_y=YPos.NEXT,
+    )
+    pdf.ln(4)
+    pdf.multi_cell(0, _LINE_HEIGHT, "ACME ROBOTICS, INC.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.multi_cell(
+        0,
+        _LINE_HEIGHT,
+        "By: ______________________  Title: Chief Legal Officer",
+        new_x=XPos.LMARGIN,
+        new_y=YPos.NEXT,
+    )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pdf.output(str(path))
+
+
+_SCANNED_INVOICE_LINES = (
+    "INVOICE",
+    "TitanBridge Systems, Inc.",
+    "Invoice #: TB-2026-0147",
+    "Issue date: July 1, 2026",
+    "Bill to: Acme Robotics, Inc.",
+    "Fleet orchestration support renewal (TitanBridge 4.1)",
+    "Account reference: Meridian Logistics program",
+    "Amount due: USD 48,000.00",
+)
+
+
+def write_scanned_invoice(path: Path) -> None:
+    """Write a deterministic scanned-style invoice: image-only PDF, no text layer.
+
+    Rendered with Pillow at a fixed size/font and embedded as a single image;
+    pypdf extraction yields no text, so format detection classifies it as a
+    scan needing OCR (the Day-4 mixed bundle's OCR-route artifact).
+    """
+    width, height = 900, 1200
+    image = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default(size=32)
+    line_height = 56
+    margin_top = 120
+    for index, line in enumerate(_SCANNED_INVOICE_LINES):
+        draw.text((80, margin_top + index * line_height), line, fill="black", font=font)
+    png = BytesIO()
+    image.save(png, format="PNG")
+    png.seek(0)
+
+    pdf = FPDF()
+    pdf.creation_date = _PINNED_DATE_UTC
+    pdf.add_page()
+    pdf.image(png, x=10, y=10, w=190)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pdf.output(str(path))
+
+
 def main() -> None:
     contract_path = DATA_DIR / "contract_customer_x.pdf"
     financials_path = DATA_DIR / "financials_fy27.xlsx"
     roster_path = DATA_DIR / "hr_roster_acme.xlsx"
     tech_path = DATA_DIR / "tech_inventory.pdf"
+    vendor_path = DATA_DIR / "vendor_agreement_2027.pdf"
+    scanned_path = SCENARIOS_DIR / "scanned_invoice.pdf"
     write_contract_customer_x(contract_path)
     write_financials_fy27(financials_path)
     write_hr_roster(roster_path)
-    write_tech_inventory_draft(tech_path)
+    write_tech_inventory(tech_path)
+    write_vendor_agreement_2027(vendor_path)
+    write_scanned_invoice(scanned_path)
     print(f"wrote {contract_path}")
     print(f"wrote {financials_path}")
     print(f"wrote {roster_path}")
     print(f"wrote {tech_path}")
+    print(f"wrote {vendor_path}")
+    print(f"wrote {scanned_path}")
 
 
 if __name__ == "__main__":
