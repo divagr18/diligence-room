@@ -79,11 +79,14 @@ def register_document(
     document_id: str,
     content: bytes,
     now: datetime | None = None,
+    chains_from: str | None = None,
 ) -> LineageRecord:
     """Register *content* under *logical_key*; return the lineage verdict.
 
     Identical checksums suppress without writing; new checksums append a
-    version that supersedes the latest registered document id.
+    version that supersedes the latest registered document id. With
+    *chains_from*, a differently-named document (e.g. an amendment)
+    explicitly continues the named prior chain.
     """
     digest = checksum(content)
     stamp = now if now is not None else datetime.now(UTC)
@@ -91,10 +94,18 @@ def register_document(
     for record in existing:
         if record.checksum == digest:
             return replace(record, status=LineageStatus.SUPPRESSED)
-    version = max((record.version for record in existing), default=0) + 1
+    base_version = 0
+    explicit_supersedes: str | None = None
+    if chains_from is not None:
+        prior = _latest_for_key(client, deal_id, chains_from)
+        if prior is None:
+            raise ValueError(f"no registered version under logical key {chains_from!r}")
+        base_version = prior.version
+        explicit_supersedes = prior.logical_key
     latest = max(existing, key=lambda record: record.version, default=None)
-    supersedes = latest.document_id if latest is not None else None
-    status = LineageStatus.NEW if version == 1 else LineageStatus.NEW_VERSION
+    version = max(latest.version if latest is not None else 0, base_version) + 1
+    supersedes = latest.document_id if latest is not None else explicit_supersedes
+    status = LineageStatus.NEW if version == 1 and supersedes is None else LineageStatus.NEW_VERSION
     record = LineageRecord(
         document_id=document_id,
         deal_id=deal_id,
@@ -118,3 +129,49 @@ def register_document(
         }
     )
     return record
+
+
+def _latest_for_key(
+    client: firestore.Client, deal_id: str, logical_key: str
+) -> LineageRecord | None:
+    records = _existing_for_key(client, deal_id, logical_key)
+    if not records:
+        return None
+    return max(records, key=lambda record: record.version)
+
+
+def link_supersedes(
+    client: firestore.Client,
+    deal_id: str,
+    new_logical_key: str,
+    prior_logical_key: str,
+) -> LineageRecord:
+    """Chain the latest version of *new_logical_key* to *prior_logical_key*.
+
+    Continues the prior version counter so readers can resolve the current
+    version across differently-named documents (Day-7 amendment scenario).
+    """
+    prior = _latest_for_key(client, deal_id, prior_logical_key)
+    if prior is None:
+        raise ValueError(f"no registered version under logical key {prior_logical_key!r}")
+    current = _latest_for_key(client, deal_id, new_logical_key)
+    if current is None:
+        raise ValueError(f"no registered version under logical key {new_logical_key!r}")
+    updated = replace(
+        current,
+        supersedes=prior.logical_key,
+        version=max(current.version, prior.version + 1),
+    )
+    _collection(client, deal_id).document(updated.document_id).set(
+        {
+            "document_id": updated.document_id,
+            "deal_id": updated.deal_id,
+            "logical_key": updated.logical_key,
+            "checksum": updated.checksum,
+            "version": updated.version,
+            "supersedes": updated.supersedes,
+            "ingested_at": updated.ingested_at.isoformat(),
+            "status": updated.status.value,
+        }
+    )
+    return updated

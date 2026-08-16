@@ -5,9 +5,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+import pytest
 from google.cloud import firestore
 
-from ingestion.lineage import checksum, get_record, register_document
+from ingestion.lineage import checksum, get_record, link_supersedes, register_document
 from ingestion.models import LineageStatus
 
 _T0 = datetime(2026, 8, 16, 9, 0, 0, tzinfo=UTC)
@@ -104,6 +105,75 @@ class TestRegisterDocument:
     def test_default_now_is_utc_aware(self, firestore_client: firestore.Client) -> None:
         record = register_document(firestore_client, "d", "k", "doc", b"q")
         assert record.ingested_at.tzinfo is not None
+
+
+class TestLinkSupersedes:
+    """Cross-logical-key version chains (D5-M5): the amendment has a different
+    filename than the vendor agreement, so the edge must be explicit."""
+
+    def test_register_with_chains_from_continues_chain(
+        self, firestore_client: firestore.Client
+    ) -> None:
+        vendor = register_document(
+            firestore_client,
+            "deal-falcon",
+            "vendor_agreement_2027.pdf",
+            "vendor_agreement_2027.pdf",
+            b"original",
+        )
+        amendment = register_document(
+            firestore_client,
+            "deal-falcon",
+            "amendment_2030.pdf",
+            "amendment_2030.pdf",
+            b"amended",
+            chains_from="vendor_agreement_2027.pdf",
+        )
+        assert vendor.version == 1
+        assert amendment.version == 2
+        assert amendment.supersedes == "vendor_agreement_2027.pdf"
+        assert amendment.status is LineageStatus.NEW_VERSION
+
+    def test_link_supersedes_after_registration(self, firestore_client: firestore.Client) -> None:
+        register_document(
+            firestore_client,
+            "deal-falcon",
+            "vendor_agreement_2027.pdf",
+            "vendor_agreement_2027.pdf",
+            b"original",
+        )
+        register_document(
+            firestore_client,
+            "deal-falcon",
+            "amendment_2030.pdf",
+            "amendment_2030.pdf",
+            b"amended",
+        )
+        linked = link_supersedes(
+            firestore_client, "deal-falcon", "amendment_2030.pdf", "vendor_agreement_2027.pdf"
+        )
+        assert linked.supersedes == "vendor_agreement_2027.pdf"
+        assert linked.version == 2
+        readback = get_record(firestore_client, "deal-falcon", "amendment_2030.pdf")
+        assert readback is not None
+        assert readback.supersedes == "vendor_agreement_2027.pdf"
+        assert readback.version == 2
+
+    def test_unlinked_documents_stay_independent(self, firestore_client: firestore.Client) -> None:
+        register_document(firestore_client, "deal-falcon", "a.pdf", "a.pdf", b"x")
+        register_document(firestore_client, "deal-falcon", "b.pdf", "b.pdf", b"y")
+        record_a = get_record(firestore_client, "deal-falcon", "a.pdf")
+        record_b = get_record(firestore_client, "deal-falcon", "b.pdf")
+        assert record_a is not None and record_b is not None
+        assert record_a.version == 1 and record_b.version == 1
+        assert record_a.supersedes is None and record_b.supersedes is None
+
+    def test_link_missing_prior_raises(self, firestore_client: firestore.Client) -> None:
+        register_document(
+            firestore_client, "deal-falcon", "amendment_2030.pdf", "amendment_2030.pdf", b"z"
+        )
+        with pytest.raises(ValueError, match="no registered version"):
+            link_supersedes(firestore_client, "deal-falcon", "amendment_2030.pdf", "ghost.pdf")
 
 
 def first_logical(client: firestore.Client, deal_id: str, document_id: str) -> str:
