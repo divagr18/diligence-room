@@ -85,6 +85,25 @@ The live runbook (bucket creation, Cloud Run deploy, verification curls) is
 in [`docs/deal_provisioning.md`](docs/deal_provisioning.md) and is guarded by
 `--confirm-live` on every deploy script.
 
+## Runbook (Day 4 — ingestion + Gemma sentinel, offline)
+
+| Step | Command | Expected |
+|---|---|---|
+| Format detection | `uv run pytest tests/test_formats.py` | native/scanned PDF, XLSX, DOCX, EML, image sniffed structurally |
+| Parse + chunk | `uv run pytest tests/test_parsing.py tests/test_chunking.py` | text + tables + clause locators; scans honest (`text=None`, `needs_ocr`) |
+| Lineage | `uv run pytest tests/test_lineage.py` | sha256 NEW / SUPPRESSED / NEW_VERSION against the emulator |
+| Sentinel + cost gate | `uv run pytest tests/test_sentinel.py` | tripwire short-circuits before downstream calls; `FakeSentinel` offline |
+| Router | `uv run pytest tests/test_classifier.py` | labeled set ≥ 90% accuracy; junk/injection never route |
+| Tracing | `uv run pytest tests/test_tracing.py` | sentinel span labeled `gen_ai.request.model` via in-memory exporter |
+| Pipeline + consumer hook | `uv run pytest tests/test_pipeline.py tests/test_consumer.py` | `document.parsed` / `document.routed` events; Day-2 contract green |
+| **Mixed-bundle gate (D4-M8)** | `uv run pytest tests/test_mixed_bundle.py` | full bundle routes/flags/events/spans; dup suppressed |
+
+Live calls (Gemma sentinel, Flash classifier, Document AI) are flag-gated
+(`DILIGENCE_GEMMA_ENABLED`, `DILIGENCE_FLASH_CLASSIFIER_ENABLED`,
+`DILIGENCE_DOCAI_ENABLED`) and exercised only inside the live evidence
+window; the Gemma serving decision is recorded in
+[`docs/decisions/gemma-serving.md`](docs/decisions/gemma-serving.md).
+
 ## Security posture (Day-1 guardrails)
 
 - **No service-account keys are created anywhere in this project.** All tooling authenticates with
