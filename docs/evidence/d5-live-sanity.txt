@@ -1,0 +1,71 @@
+DAY 5 LIVE SANITY WINDOW (BUILD_PLAN D5 objective, user-approved small window)
+Executed: 2026-08-17 ~00:55 local (Asia/Calcutta) / 2026-08-16 ~19:25-19:31 UTC
+Project: diligence-room (910285417505) — undeleted for this window only, deleted after.
+Provenance: captured live during execution (runner stdout via tee, gcloud CLI). No reconstructions.
+
+====================================================================
+0. SCOPE + AUTH MODEL
+====================================================================
+One real gemini-3.5-flash ADK agent answering the governed CoC revenue question
+through the full gateway chain on live Firestore. Flash runs on Vertex AI via
+ADC at location=global (model_ids.md) — NO Gemini Developer API key required.
+Sentinel tier not exercised here (Day-4 red path stands; see d4-live-gate.txt).
+
+====================================================================
+1. WINDOW SEQUENCE
+====================================================================
+$ gcloud projects undelete diligence-room
+  -> "Restored project" -> lifecycleState ACTIVE
+$ uv run python infra/bootstrap_gcp.py            (idempotent API re-enable;
+  first attempt without it failed CONSUMER_INVALID on Firestore — bootstrap
+  re-established the service consumer binding)
+$ uv run python scripts/run_d5_live_sanity.py --deal-id deal-falcon --confirm-live
+
+====================================================================
+2. RUNNER OUTPUT (verbatim, minus one ADK UserWarning line)
+====================================================================
+gateway: verdict=allow reason=aggregate_permitted rule=legal->finance request_id=97087f13aaba494c8d604f347131a81b
+[sanity] finance_aggregate called: args={'question': 'What percentage of projected FY27 revenue comes from Meridian Logistics (Customer X)?'}
+[sanity] agent text: '18.3% (Source: financials_fy27.xlsx)'
+[sanity] PASS
+EXIT: 0
+
+Chain proved live:
+  1. PolicyStore.seed_defaults wrote the legal->finance corridor to LIVE
+     Firestore (deals/deal-falcon/gateway_policy/legal->finance).
+  2. decide() returned ALLOW / aggregate_permitted and appended the
+     gateway.decision audit event to the live canonical event log
+     (request_id 97087f13...).
+  3. Real ADK Finance agent (gemini-3.5-flash, Vertex/global, ADC) received
+     the ALLOWed question, called the governed finance_aggregate tool once,
+     and answered with the scalar '18.3%' citing financials_fy27.xlsx —
+     real model output, aggregate-only, no model internals.
+
+====================================================================
+3. TEARDOWN RECEIPT
+====================================================================
+$ gcloud billing budgets delete c846581d-0b2a-4118-a1f2-7f5965197e2c \
+    --billing-account=012D4F-261885-E006CE --quiet
+  -> "Deleted budget [c846581d-0b2a-4118-a1f2-7f5965197e2c]."
+  (the window's diligence-room-hard-cap budget; the pre-existing account-level
+   alert a552dbc2 was left untouched, as in Day-4)
+$ gcloud projects delete diligence-room --quiet
+  -> shutdown acknowledged
+$ gcloud projects describe diligence-room --format="value(lifecycleState)"
+  -> DELETE_REQUESTED   (verified 2026-08-16T19:31:47Z UTC)
+
+All live state from the window (policy corridor, gateway.decision event,
+restored Day-4 resources) went with the project deletion.
+
+====================================================================
+4. COST
+====================================================================
+One Flash call (few hundred tokens) + minimal Firestore writes; window open
+< 10 minutes within the hard-cap budget. Effectively $0.
+
+====================================================================
+5. S5 VERDICT
+====================================================================
+PASS — the governed corridor works end-to-end with a REAL model: policy ALLOW
+audited in live Firestore, real Flash agent answered 18.3% through the
+aggregate-only tool, project torn down to DELETE_REQUESTED immediately after.
