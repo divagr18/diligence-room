@@ -48,6 +48,38 @@ append-only; `seq` is monotonic per deal (D3-M4). Immutable by convention and
 later retention policy (§7.8). Documents also store `dedupe_key` — the
 envelope's idempotency key for append deduplication (D6-M2).
 
+### `deals/{deal_id}/gateway_policy/{rule_id}` — gateway policy rule (Day 5, D5-M1)
+
+| Field | Type | Notes |
+|---|---|---|
+| rule_id | string | `{subject}->{target}`, e.g. `legal->finance` |
+| subject_workstream / target_workstream | string | `Workstream` values |
+| purposes | array\<string\> | allow-list; empty = no purpose grants |
+| response_shape | string | `aggregate_only` / `none` |
+| rate_limit | int | max ALLOWs per rolling hour; 0 = unlimited |
+
+Deny-default: a missing rule denies (`NO_POLICY`). Seeded corridor: `legal->finance`
+with purposes `revenue_concentration`, `change_of_control_exposure`,
+`aggregate_only`, rate limit 10.
+
+### `deals/{deal_id}/gateway_rate/{rule_id}` — rolling-hour rate counter (Day 5, D5-M3)
+
+| Field | Type | Notes |
+|---|---|---|
+| window_start | string | ISO timestamp truncated to the hour |
+| count | int | ALLOWs consumed in the window; transactional increment |
+
+### `deals/{deal_id}/documents/{document_id}` — ingestion lineage (Day 4, D4-M6; Day 5, D5-M5)
+
+| Field | Type | Notes |
+|---|---|---|
+| document_id / deal_id / logical_key | string | |
+| checksum | string | sha256 of content |
+| version | int | continues prior chains (`chains_from`, `link_supersedes`) |
+| supersedes | string \| null | prior document id or logical key |
+| ingested_at | string | ISO timestamp |
+| status | string | `new` / `suppressed` / `new_version` |
+
 ### `agents/{agent_id}` — AgentManifest (`registry.models.AgentManifest`)
 
 Physical path note: the registry module stores manifests in the top-level

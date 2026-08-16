@@ -1,0 +1,126 @@
+DAY 5 OFFLINE GATE — GATEWAY POLICY ENGINE (BUILD_PLAN D5-M1..M5 + Phase-3 gate)
+Captured: 2026-08-17 (Asia/Calcutta) · Firestore emulator offline · project left DELETE_REQUESTED
+Provenance: all outputs captured during execution (pytest CLI, uvicorn+curl), not reconstructed.
+
+====================================================================
+1. QUALITY BATTERY (full suite, repo-wide strict gates)
+====================================================================
+
+$ uv run pytest tests/ -q
+575 passed, 2 warnings in 14.51s
+  (Day-4 close-out was 497; Day 5 adds 78 tests across policy, decide,
+  aggregate, query tool, app HTTP edge, prompts, amendment, lineage, E2E.)
+
+$ uv run mypy <all 16 packages> --strict
+Success: no issues found in 116 source files
+
+$ uv run ruff check .   -> All checks passed
+$ pre-commit (ruff/ruff-format/mypy strict/gitleaks) -> Passed on every Day-5 commit
+
+====================================================================
+2. PHASE EXITS
+====================================================================
+
+Phase 1 exit (policy loads from Firestore; tool callable): PASS
+  tests/test_gateway_policy.py 12 passed; tests/test_gateway_query_tool.py 13 passed.
+
+Phase 2 exit (decide() reasoned verdicts for 6 scripted requests): PASS
+  tests/test_gateway_decide.py 13 passed — 3 ALLOW (revenue_concentration,
+  change_of_control_exposure, repeat-in-window) / 3 DENY (legal->hr NO_POLICY,
+  purpose raw_valuation PURPOSE_NOT_ALLOWED, 11th call RATE_LIMITED).
+  Rolling-hour window reset proven with injected clock (10:30 allow, 10:50
+  deny at limit, 11:05 allow after reset).
+
+Aggregate enforcement (D5-M4): PASS — tests/test_gateway_aggregate.py 16 passed.
+  Scalar-only filter; table dumps, numeric dumps, valuation-model internals,
+  and customer listings all blocked with RAW_MODEL_PROHIBITED; extraction
+  requests in QUESTIONS blocked regardless of purpose; injection-style
+  extraction blocked too.
+
+Phase 3 gate (governed E2E): PASS — tests/test_gateway_e2e.py -v:
+  test_coc_finding_triggers_allowed_query_returning_18_3 PASSED
+  test_18_3_recorded_as_linked_finding_with_verbatim_evidence PASSED
+  test_direct_financials_read_by_legal_denied_and_audited PASSED
+  test_debug_listing_shows_allow_and_deny PASSED
+  test_lineage_supersedes_ready_for_amendment PASSED
+  (5 passed in 4.28s)
+
+====================================================================
+3. GOVERNED E2E CHAIN DETAIL (vision §6 keystone setup)
+====================================================================
+
+1. Policy seeded: legal->finance corridor (purposes revenue_concentration +
+   change_of_control_exposure, aggregate_only, rate_limit 10); deny-default
+   for everything else.
+2. Legal CoC finding LEGAL-001 created with byte-verbatim §11.3 evidence
+   resolved through the Day-4 chunk locator (clause:11.3 substring of parsed
+   contract text; severity HIGH).
+3. ask_agent(target_ws="finance", purpose="change_of_control_exposure") ->
+   decide() ALLOW / AGGREGATE_PERMITTED / rule legal->finance, gateway.decision
+   event appended to the canonical log with machine-readable payload.
+4. OfflineFinanceResponder computes the share from the REAL workbook
+   (financials_fy27.xlsx: 8,893,800 / 48,600,000) and renders "18.3%" —
+   derived on every call, never hardcoded.
+5. Second finding LEGAL-002 records the 18.3% exposure, evidence cites the
+   financials sheet row verbatim, related_findings links LEGAL-001.
+6. Direct cross-workstream read: legal principal authorized_read on
+   financials/fy27 -> AuthzDenied(workstream_boundary) + SECURITY_EVENT
+   (decision=deny) appended — the audited denial leg.
+7. Debug listing (decisions_for_deal) returns both gateway decisions
+   (allow + deny) ordered by seq — seeds the dashboard Security view.
+8. Amendment readiness: register_document(chains_from=vendor_agreement_2027.pdf)
+   yields amendment version 2 with supersedes edge — Day-7 update-not-duplicate
+   groundwork (D5-M5).
+
+====================================================================
+4. HTTP EDGE SURFACE (real uvicorn + curl vs emulator)
+====================================================================
+
+EMU_READY=true pid=25040
+UV_READY=true pid=6392
+ALLOW_STATUS=200
+ALLOW_BODY={"request_id":"edb0fe4a151b46cea89921f880b4135d","decision":"allow","reason":"aggregate_permitted","rule_id":"legal->finance"}
+DENY_STATUS=200
+DENY_BODY={"request_id":"906e0665fba54483a46d120f0366b7f7","decision":"deny","reason":"no_policy","rule_id":null}
+BAD_STATUS=422   (malformed target_workstream rejected)
+HEALTHZ=200 {"status":"ok","service":"gateway"}
+CLEANUP uv_port_free=True emu_port_free=True
+
+POST /gateway/decide is additive: create_app(gateway_client=...) registers the
+route only when a Firestore client is wired; the shell stays 404-free otherwise.
+
+====================================================================
+5. DATASET (D5-M5)
+====================================================================
+
+amendment_2030.pdf authored deterministically (fpdf2, pinned timestamps):
+  - extends TitanBridge exclusivity to 2030-06-30;
+  - amends Section 4 (Exclusivity) ONLY; ratification clause keeps all other
+    terms in full force and effect (DATASET_PLAN hard rule);
+  - references the July 1, 2026 Software License Agreement;
+  - regeneration byte-identical (test proves dirty=0 after regen).
+vendor_agreement_2027.pdf unchanged (still 2027-06-30) — test asserts.
+
+====================================================================
+6. S5 VERDICT (offline)
+====================================================================
+
+Day-5 objectives met offline:
+- Legal asks Finance, gets 18.3% — governed (ALLOW, aggregate only, audited).
+- Direct cross-workstream access denied and logged (SECURITY_EVENT).
+- Amendment authored + lineage chain ready.
+- HTTP policy edge demonstrated on a live server process.
+
+Live sanity check (real gemini-3.5-flash ADK agent through the chain) recorded
+separately in d5-live-sanity.txt.
+
+====================================================================
+7. COMMITS (Day 5, all pushed)
+====================================================================
+
+8497278 feat(gateway): policy rules + decision engine (D5-M1/M3)
+f163eb0 feat(gateway): aggregate-only enforcement + ask_agent tool (D5-M4/M2)
+0dbbce0 feat(gateway): legal gateway hook, finance tuning, POST /gateway/decide (D5-M2/M5)
+(data)   feat(data): amendment_2030 extends TitanBridge exclusivity to 2030-06-30 (D5-M5)
+8252974 feat(ingestion): explicit cross-key lineage chains (D5-M5)
+ceaa165 test(gate): Day-5 governed E2E chain (Phase-3 gate)

@@ -104,6 +104,17 @@ Live calls (Gemma sentinel, Flash classifier, Document AI) are flag-gated
 window; the Gemma serving decision is recorded in
 [`docs/decisions/gemma-serving.md`](docs/decisions/gemma-serving.md).
 
+## Runbook (Day 5 — gateway policy engine, offline)
+
+| Step | Command | Expected |
+|---|---|---|
+| Policy rules | `uv run pytest tests/test_gateway_policy.py` | rule validation, deny-default seed, idempotency |
+| Decision engine | `uv run pytest tests/test_gateway_decide.py` | 3 ALLOW / 3 DENY scripted verdicts, rolling-hour rate limit, audited payloads |
+| Aggregate enforcement | `uv run pytest tests/test_gateway_aggregate.py` | scalar-only filter; extraction attempts blocked |
+| Governed query tool | `uv run pytest tests/test_gateway_query_tool.py` | `ask_agent` -> ALLOW -> real-workbook `18.3%` |
+| HTTP edge | `uv run pytest tests/test_gateway_app.py` | `POST /gateway/decide` ALLOW/DENY/422 |
+| **E2E gate (Phase 3)** | `uv run pytest tests/test_gateway_e2e.py` | CoC finding -> ALLOW -> 18.3% linked finding -> denied direct read |
+
 ## Security posture (Day-1 guardrails)
 
 - **No service-account keys are created anywhere in this project.** All tooling authenticates with
