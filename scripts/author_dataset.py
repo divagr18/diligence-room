@@ -24,7 +24,9 @@ tests/test_dataset_artifacts.py pin the planted facts.
 
 from __future__ import annotations
 
+import argparse
 import re
+import sys
 import zipfile
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -593,7 +595,11 @@ def _save_docx_deterministic(document: DocxDocument, path: Path) -> None:
     path.write_bytes(fixed.getvalue())
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Regenerate the deterministic Acme Robotics dataset artifacts in place."
+    )
+    parser.parse_args(argv)
     contract_path = DATA_DIR / "contract_customer_x.pdf"
     financials_path = DATA_DIR / "financials_fy27.xlsx"
     roster_path = DATA_DIR / "hr_roster_acme.xlsx"
@@ -618,7 +624,8 @@ def main() -> None:
     print(f"wrote {scanned_path}")
     print(f"wrote {memo_path}")
     print(f"wrote {injection_path}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

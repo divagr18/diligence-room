@@ -229,6 +229,35 @@ class TestRegenerationDeterminism:
         assert regenerated.read_bytes() == HR_ROSTER_XLSX.read_bytes()
 
 
+class TestDatasetScriptCli:
+    """The generator is a write tool: unknown arguments must refuse, not regenerate."""
+
+    def test_unknown_argument_refuses(self) -> None:
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, "scripts/author_dataset.py", "--bogus-flag"],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        assert result.returncode != 0
+
+    def test_help_exits_zero_without_arguments(self) -> None:
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, "scripts/author_dataset.py", "--help"],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        assert result.returncode == 0
+        assert "usage" in result.stdout.lower()
+
+
 class TestDatasetConsistency:
     def test_customer_x_share_exact_in_workbook(self) -> None:
         financials = TestFinancialsArtifact()
