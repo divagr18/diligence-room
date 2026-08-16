@@ -134,6 +134,7 @@ remain the development-time contract:
 | Live activity | Offline substitute |
 |---|---|
 | End-to-end pipeline on GCP | [`tests/test_e2e_offline.py`](../tests/test_e2e_offline.py) — full pipeline exercised against the local Firestore emulator (see [`tests/conftest.py`](../tests/conftest.py) for the emulator fixture) |
+| Day-4 ingestion pipeline on GCP | [`tests/test_mixed_bundle.py`](../tests/test_mixed_bundle.py) — mixed bundle through detect→lineage→parse→sentinel→classify→route against the emulator; spans via in-memory exporter (evidence: [`docs/evidence/d4-offline-gate.txt`](evidence/d4-offline-gate.txt)) |
 | Bucket provisioning plan | [`tests/test_data_room_plan.py`](../tests/test_data_room_plan.py) — pure planning logic unit-tested; `--dry-run` prints the full gcloud command sequence |
 | Bootstrap API enablement | [`tests/test_bootstrap_plan.py`](../tests/test_bootstrap_plan.py) — service-enablement diff and budget-argument construction |
 
