@@ -1,0 +1,53 @@
+DAY 4 TEARDOWN RECEIPT (live evidence window closure)
+Executed: 2026-08-16 ~22:42-22:52 local (Asia/Calcutta) / ~16:42-16:52 UTC
+Project: diligence-room (910285417505)
+Provenance: captured during execution (gcloud CLI output).
+
+====================================================================
+TEARDOWN SEQUENCE
+====================================================================
+
+1. API key deleted (Gemini Developer API key created for the window):
+   $ gcloud services api-keys delete bf103add-7292-4ca2-9b1e-364d9a1ce706 \
+       --project=diligence-room --quiet
+   -> operation completed (updateTime 2026-08-16T16:50:22Z; the key had been
+      rejected by the Developer API with API_KEY_INVALID during the window,
+      see d4-live-gate.txt section 1 — deleted regardless as cleanup)
+
+2. Window budget alert deleted:
+   $ gcloud billing budgets delete 8eaed649-4628-41a6-a232-3873d47198e7 \
+       --billing-account=012D4F-261885-E006CE --quiet
+   -> "Deleted budget [8eaed649-4628-41a6-a232-3873d47198e7]."
+   NOTE: a pre-existing billing-account-level alert ("?300 Monthly budget
+   alert", a552dbc2-d276-463b-b146-c2ec8b968c7d) was left untouched — it
+   predates this project and belongs to the billing account, not the window.
+
+3. Project deleted:
+   $ gcloud projects delete diligence-room --quiet
+   -> shutdown acknowledged (resource-manager docs reference printed)
+
+4. State verification (read-only):
+   $ gcloud projects describe diligence-room --format="value(lifecycleState)"
+   -> DELETE_REQUESTED   (verified 2026-08-16T16:51:29Z UTC)
+
+====================================================================
+RESOURCES RELEASED WITH THE PROJECT
+====================================================================
+- GCS buckets diligence-room-dataroom-deal-falcon-{us,eu} + notifications
+- Pub/Sub topic deal-events + subscription deal-events-sub
+- Firestore database (nam5) incl. live-window evidence data:
+  15 events (8 parsed / 6 routed / 1 security), 8 lineage records,
+  8 registry manifests, deal workspace — all frozen in d4-live-gate.txt
+  sections 3-6 before deletion
+- API enablements, IAM grants, guardrail audit configs
+
+====================================================================
+POST-TEARDOWN STATE
+====================================================================
+- Nothing running or billable; project recoverable via
+  `gcloud projects undelete diligence-room` (~30-day window).
+- Repo offline suite unaffected by the window (verified post-teardown;
+  see commit message alongside this file).
+- Open item for a future full-green S7: an AI-Studio-issued GOOGLE_API_KEY
+  upgrades the sentinel tier from fake to live Gemma without any code change
+  (drop --offline-sentinel on scripts/run_d4_live_gate.py).

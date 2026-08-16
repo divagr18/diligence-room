@@ -1,0 +1,163 @@
+DAY 4 LIVE EVIDENCE WINDOW (BUILD_PLAN D4-M8 gate, scenario S7)
+Executed: 2026-08-16 ~22:03-22:11 local (Asia/Calcutta) / ~16:33-16:41 UTC
+Project: diligence-room (910285417505) · Mode: RED PATH (--offline-sentinel)
+Window commits: d68f0f4 (--offline-sentinel flag) on top of 459fa49
+Provenance: all outputs captured during execution (gcloud / runner CLI / Firestore
+query / Cloud Trace API). No reconstructions.
+
+====================================================================
+0. RED-PATH DISCLOSURE (read first)
+====================================================================
+The approved plan's primary sentinel path (hosted Gemini Developer API, Gemma 4)
+could NOT be executed: it requires an AI-Studio-issued API key, and the key
+self-created from the project was categorically rejected. Per BUILD_PLAN's red
+path ("Gemma serving friction -> fallback, decision documented"), the window ran
+with the REAL pipeline: real gemini-3.5-flash classifier (Vertex AI, location=
+global, ADC auth), real Firestore event log + lineage, real Cloud Trace export —
+and the sentinel tier on the deterministic FakeSentinel, labeled in output and
+here. The Day-4 bonus-model claim therefore rests on the offline contract
+(tests/test_sentinel.py cost-gate proofs, GEMMA_MODEL_ID pinning) PLUS this
+window's live-pipeline evidence; a future window with an AI Studio key can
+upgrade the sentinel tier without changing anything else.
+
+====================================================================
+1. GEMMA KEY ATTEMPT + FAILURE (why red path)
+====================================================================
+- generativelanguage.googleapis.com enabled on the project (operation
+  acat.p2-910285417505-a66a0fca... finished successfully).
+- API key created via gcloud: name=projects/910285417505/locations/global/keys/
+  bf103add-7292-4ca2-9b1e-364d9a1ce706, displayName="day4-live-window",
+  uid=bf103add-7292-4ca2-9b1e-364d9a1ce706 (key string NOT recorded — security).
+- Live gate attempt 1 + 2 crashed at the first sentinel call:
+  google.genai.errors.ClientError: 400 INVALID_ARGUMENT, reason=API_KEY_INVALID
+  (service generativelanguage.googleapis.com) on gemma-4-26b-a4b-it.
+- Auth-only probe GET /v1beta/models?key=... with the same key -> identical
+  400 API_KEY_INVALID: rules out model-id and propagation-delay causes;
+  project-created API keys are not accepted by the Gemini Developer API
+  (AI-Studio-issued keys required).
+- Attempt-2 crash left 1 lineage record + 1 parsed/security event pair in live
+  Firestore; both were deleted before the red-path run (cleanup verified:
+  "lineage: 1 / events: 1 / cleaned").
+
+====================================================================
+2. PROVISIONING (window steps 1-6)
+====================================================================
+$ gcloud projects undelete diligence-room
+Restored project [https://cloudresourcemanager.googleapis.com/v1/projects/diligence-room].
+$ gcloud projects describe diligence-room --format="value(lifecycleState)"  -> ACTIVE
+
+$ uv run python infra/bootstrap_gcp.py
+    budget present: billingAccounts/012D4F-261885-E006CE/budgets/8eaed649-4628-41a6-a232-3873d47198e7
+    billing linked - ok
+Bootstrap complete for project 'diligence-room'.
+
+$ uv run python infra/guardrails.py
+    no organization node - org-scope constraints unavailable (documented deviation, see README)
+Guardrails applied.
+
+$ gcloud firestore databases describe --database="(default)"
+    nam5  FIRESTORE_NATIVE   (database restored with the project; no create needed)
+
+$ uv run python infra/data_room.py --deal-id deal-falcon --project-number 910285417505 --confirm-live
+    bucket gs://diligence-room-dataroom-deal-falcon-us already exists - ok
+    bucket gs://diligence-room-dataroom-deal-falcon-eu already exists - ok
+    granted roles/pubsub.publisher to serviceAccount:service-910285417505@gs-project-accounts.iam.gserviceaccount.com
+    notification already present on gs://diligence-room-dataroom-deal-falcon-us - ok
+    notification already present on gs://diligence-room-dataroom-deal-falcon-eu - ok
+    created subscription deal-events-sub -> deal-events
+Data room ready for deal-falcon.
+
+$ uv run python registry/seed.py --confirm-live
+Seeded 0 new manifest(s); registry now holds 8 agent(s).
+
+====================================================================
+3. LIVE GATE RUN (step 7) — real Flash classifier, red-path sentinel
+====================================================================
+$ uv run python scripts/run_d4_live_gate.py --deal-id deal-falcon --confirm-live --offline-sentinel
+sentinel_mode=fake (RED PATH: Gemini Developer API rejected the project-created API key with API_KEY_INVALID; disclosed in evidence)
+deal=deal-falcon project=diligence-room bundle=8 documents
+contract_customer_x.pdf: status=routed workstream=legal doc_type=master_services_agreement dlp_required=False needs_ocr=False events=2
+financials_fy27.xlsx: status=routed workstream=finance doc_type=revenue_projection dlp_required=False needs_ocr=False events=2
+hr_roster_acme.xlsx: status=routed workstream=hr doc_type=employee_roster dlp_required=False needs_ocr=False events=2
+tech_inventory.pdf: status=routed workstream=ip_tech doc_type=technology_asset_inventory dlp_required=False needs_ocr=False events=2
+vendor_agreement_2027.pdf: status=routed workstream=ip_tech doc_type=software_license_agreement dlp_required=False needs_ocr=False events=2
+memo_fleet_operations.docx: status=routed workstream=ip_tech doc_type=memorandum dlp_required=False needs_ocr=False events=2
+scanned_invoice.pdf: status=needs_ocr workstream=- doc_type=- dlp_required=False needs_ocr=True events=1
+injection_probe.docx: status=tripwired workstream=- doc_type=- dlp_required=False needs_ocr=False events=2
+trace-console: https://console.cloud.google.com/traces/list?project=diligence-room
+events: gcloud firestore query deals/deal-falcon/events (15 expected)
+EXIT: 0   (run window 22:09:27 -> 22:11:20 local)
+
+LIVE-MODEL NOTE: the real Flash classifier routed vendor_agreement_2027.pdf to
+ip_tech (doc_type=software_license_agreement, conf 0.95) where the offline
+FakeClassifier routes it to legal. Both are defensible for a software license;
+this is genuine live-model judgment, recorded without correction.
+
+====================================================================
+4. LIVE FIRESTORE STATE (post-run, queried with ADC)
+====================================================================
+events total: 15 | by type: {"document.parsed": 8, "document.routed": 6, "security.event": 1}
+
+--- live routing table (gemini-3.5-flash classifier, Vertex/global) ---
+contract_customer_x.pdf      -> legal     doc_type=master_services_agreement    conf=1.00 dlp=False
+financials_fy27.xlsx         -> finance   doc_type=revenue_projection           conf=0.95 dlp=False
+hr_roster_acme.xlsx          -> hr        doc_type=employee_roster              conf=1.00 dlp=False
+memo_fleet_operations.docx   -> ip_tech   doc_type=memorandum                   conf=0.95 dlp=False
+tech_inventory.pdf           -> ip_tech   doc_type=technology_asset_inventory   conf=0.95 dlp=False
+vendor_agreement_2027.pdf    -> ip_tech   doc_type=software_license_agreement   conf=0.95 dlp=False
+
+lineage records: 8 (all v1, status=new, sha256 checksums)
+  contract_customer_x.pdf      checksum=194ecace1a457e0b...
+  financials_fy27.xlsx         checksum=ffa2eb208a9ab0d8...
+  hr_roster_acme.xlsx          checksum=b46b728ca7a7bf37...
+  injection_probe.docx         checksum=4c476888a8d47ddf...
+  memo_fleet_operations.docx   checksum=32d9849f85501eff...
+  scanned_invoice.pdf          checksum=bbcd35c2f9639113...
+  tech_inventory.pdf           checksum=33b1b87214a2aa52...
+  vendor_agreement_2027.pdf    checksum=c615f18066a5b798...
+
+====================================================================
+5. SECURITY EVENT (tripwire, live)
+====================================================================
+security.event payload:
+{"checksum": "4c476888a8d47ddf48388ec8c4740bdf4b4dd41e0ccf21910514051cf86131dc",
+ "document_id": "injection_probe.docx",
+ "patterns": ["ignore_instructions", "exfiltration"],
+ "reason": "injection_tripwire", "version": 1}
+
+====================================================================
+6. CLOUD TRACE EVIDENCE
+====================================================================
+API: cloudtrace.googleapis.com ENABLED on the project (verified pre-run).
+v1 traces list (window 16:00-17:00 UTC) returned 2 traces:
+  0ab043bd1e9629c091d1264f97bb8511
+  0e7c9081e1f4c44aa53a788f2750f302
+Trace 0ab043bd... full JSON (v1 GET):
+  projectId: diligence-room
+  span: name="ingestion.parse", spanId=12584668412163515821,
+        startTime=2026-08-16T16:33:46.277531800Z, endTime=...46.387077700Z,
+        labels: g.co/agent="opentelemetry-python 1.43.0; google-cloud-trace-exporter 1.14.0",
+                gcp.project_id="diligence-room"
+Trace 0e7c9081... raw grep confirms span name "ingestion.parse".
+Console: https://console.cloud.google.com/traces/list?project=diligence-room
+HONEST NOTE: only 2 root traces were queryable at capture time (the deprecated
+CloudTraceSpanExporter emits each root span as its own trace; remaining spans
+were exported without error but lagged ingestion). Span names + exporter agent
+labels above are the hard evidence; the console URL is the visual companion.
+
+====================================================================
+7. S7 VERDICT
+====================================================================
+Live pipeline end-to-end on real GCP: PASS (red path).
+- Mixed bundle moved through detect -> lineage -> parse -> sentinel -> classify
+  -> route/security events on LIVE Firestore with real Flash routing.
+- Scanned doc honest (needs_ocr, no fabricated text); injection probe tripwired
+  and never routed; duplicate-free first registration for all 8 docs.
+- Spans exported to Cloud Trace; agent labels confirm OTel -> Trace export.
+- Sentinel tier: deterministic fake (disclosed above); upgrading to live Gemma
+  requires only GOOGLE_API_KEY from AI Studio (runner: drop --offline-sentinel).
+
+====================================================================
+8. TEARDOWN
+====================================================================
+See d4-teardown.txt (captured immediately after this file).
