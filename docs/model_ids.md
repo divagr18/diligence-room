@@ -5,6 +5,7 @@ Recorded 2026-08-15 per BUILD_PLAN module D1-M6 ("verify exact model ID — reco
 | Purpose | Model ID | Status | Source |
 |---|---|---|---|
 | All workstream agents + hello agent | `gemini-3.5-flash` | GA on Vertex AI / Gemini Enterprise Agent Platform since 2026-05-19; retirement ≥ 2027-05-19 | Gemini Enterprise Agent Platform model docs (retrieved 2026-08-15) |
+| Ingestion sentinel (Day 4) | `gemma-4-26b-a4b-it` (fallback `gemma-4-31b-it`) | Hosted on the Gemini Developer API (AI Studio path); Gemma 4 lineup GA since 2026-04-02 — ALL Gemma 3 ids removed ~2026-04-30 | ai.google.dev "Run Gemma with the Gemini API" (updated 2026-07-02, retrieved 2026-08-16); decision in `docs/decisions/gemma-serving.md` |
 
 ## Usage in code
 

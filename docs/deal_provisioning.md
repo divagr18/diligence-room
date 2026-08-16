@@ -79,6 +79,50 @@ The `--confirm-live` flag on `data_room.py`, `seed.py`, and `cloud_run.py` is
 a deliberate write-only guard: running without it (and without `--dry-run`)
 exits immediately with a refusal message.
 
+## Day-4 live evidence window (D4-M8 gate, short window)
+
+Day 4 is built offline-first; the live window exists only to capture the
+phase-exit evidence "sentinel model labeled in traces" + a real mixed-bundle
+run, then tear down (Phase-A pattern). Estimated cost < $1.
+
+```bash
+# 1. Restore the project (DELETE_REQUESTED is recoverable ~30 days).
+gcloud projects undelete diligence-room
+gcloud projects describe diligence-room --format="value(lifecycleState)"  # ACTIVE
+
+# 2. Re-apply bootstrap (idempotent) — recreates the deleted budget alerts.
+uv run python infra/bootstrap_gcp.py
+uv run python infra/guardrails.py
+
+# 3. Firestore must exist after undelete (check before creating).
+gcloud firestore databases describe --project=diligence-room \
+  || gcloud firestore databases create --project=diligence-room --location=nam5
+
+# 4. Re-provision the data room + registry.
+uv run python infra/data_room.py --deal-id deal-falcon \
+    --project-number 910285417505 --confirm-live
+uv run python registry/seed.py --confirm-live
+
+# 5. Live gate runner (Step-10 artifact): pulls deal-events, downloads the
+#    uploaded bundle from the US bucket, runs the REAL pipeline —
+#    gemini-3.5-flash (location=global) + hosted Gemma sentinel — and
+#    exports OTel spans to Cloud Trace. Env for the window:
+#      GOOGLE_GENAI_USE_VERTEXAI=TRUE  GOOGLE_CLOUD_LOCATION=global
+#      DILIGENCE_FLASH_CLASSIFIER_ENABLED=1
+#      DILIGENCE_GEMMA_ENABLED=1       GOOGLE_API_KEY=<AI-Studio key, env only>
+#      DILIGENCE_DOCAI_ENABLED=1  (optional; needs a us OCR processor —
+#      if provisioning friction appears, scanned docs route honestly with
+#      needs_ocr and the evidence file records the skip; BUILD_PLAN red path)
+uv run python scripts/run_d4_live_gate.py --deal-id deal-falcon --confirm-live
+
+# 6. Capture evidence AS IT HAPPENS -> docs/evidence/d4-live-gate.txt
+#    (events in Firestore, span ids + Cloud Trace console URLs, per-doc
+#    routing table, provenance notes for anything recovered after the fact).
+
+# 7. Tear down: budget + project (buckets/processors/registry all go with it).
+#    Capture receipt -> docs/evidence/d4-teardown.txt, confirm DELETE_REQUESTED.
+```
+
 ## Offline substitutes
 
 The live Day-2 gate was executed successfully on 2026-08-16 (see
