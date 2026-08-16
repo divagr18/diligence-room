@@ -93,3 +93,67 @@ event count (expect still 1): 1
 The re-upload produced a notification with the same dedupe key; the consumer
 recognized the existing audit record and skipped re-processing. Deal state and
 event log are unchanged.
+
+## 6. Registry seed + live API demo (SA4)
+
+Provenance: executed live during the gate session; outputs recovered from the
+session transcript into this file during verification (persistence was missed
+at capture time; values match the session record exactly; re-run impossible
+while the project stays DELETE_REQUESTED by instruction).
+
+```
+$ uv run python registry/seed.py --confirm-live
+Seeded 8 new manifest(s); registry now holds 8 agent(s).
+
+$ uv run uvicorn registry.server:app --host 127.0.0.1 --port 8451   # live Firestore via ADC
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8451 (Press CTRL+C to quit)
+
+$ curl -s http://127.0.0.1:8451/agents
+-> 8 manifests, all approved=true, policy_profile=falcon-standard-v1,
+   required_identity={ws}-agent@deal, allowed_tools=[data-room-read, finding-create, gateway-query]:
+   esg=1.3.0  finance=3.1.0  hr=1.8.0  ip_tech=2.2.0
+   legal=2.4.0  real_estate=1.1.0  regulatory=2.0.0  tax=1.5.0
+
+$ curl -s http://127.0.0.1:8451/agents/legal/versions
+[{"version":"2.4.0","model_id":"gemini-3.5-flash",
+  "prompt_ref":"agents.legal.prompts:SYSTEM_PROMPT",
+  "created_at":"2026-08-15T21:51:22.386335Z","approved":true,
+  "eval_score":null,"rollback_target":null,"changelog":""}]
+
+$ curl -s -X PATCH http://127.0.0.1:8451/agents/legal/approval \
+      -H "Content-Type: application/json" \
+      -d '{"approved": true, "eval_score": 0.97, "rollback_target": "2.3.0"}'
+{"agent_id":"legal","name":"Legal Agent","version":"2.4.0",...,
+ "approved":true,"eval_score":0.97,"deployment_status":"registered",
+ "rollback_target":"2.3.0",...}
+
+$ verification readback
+legal: approved=True eval_score=0.97 rollback_target=2.3.0
+```
+
+## 7. Gateway on Cloud Run (SA5)
+
+Same provenance note as section 6.
+
+```
+$ uv run python infra/deploy/cloud_run.py --project diligence-room \
+      --service gateway --region us-central1 --source . --allow-unauthenticated --confirm-live
+Deploy submitted: gcloud run deploy gateway --source . --region us-central1 \
+  --project diligence-room --set-build-env-vars=GOOGLE_PYTHON_VERSION=3.13 --allow-unauthenticated
+
+URL: https://gateway-7ur7rxmhma-uc.a.run.app
+
+Discovery: GET /healthz returned Google Frontend's own 404 page — GFE answers
+/healthz itself at the edge before the container sees the request. /health
+alias added (commit ee03bd8); app serves both routes locally.
+
+$ curl -s https://gateway-7ur7rxmhma-uc.a.run.app/health
+{"status":"ok","service":"gateway"}  [HTTP=200]
+
+$ curl -s -H "X-Caller-Identity: day2-live-audit" https://gateway-7ur7rxmhma-uc.a.run.app/whoami
+{"caller":"day2-live-audit"}  [HTTP=200]
+
+$ curl -s https://gateway-7ur7rxmhma-uc.a.run.app/whoami
+{"caller":"anonymous"}
+```
