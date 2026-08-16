@@ -1,23 +1,55 @@
-"""Agent Gateway — service shell (BUILD_PLAN D2-M7).
+"""Agent Gateway — service shell (BUILD_PLAN D2-M7) + policy HTTP edge (D5-M3).
 
 Day-1 scope: ``create_app()`` factory with caller-identity middleware
 and two trivial routes (``/healthz``, ``/whoami``).  Every request is
 logged *after* the response with method, path, caller, and status code.
+
+Day-5 scope: when constructed with a Firestore client, the factory registers
+``POST /gateway/decide`` over the policy engine (gateway.decide). The route is
+absent (404) when no client is wired, keeping the shell dependency-free.
 """
 
 from __future__ import annotations
 
 import logging
+import uuid
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 
 import fastapi
+import pydantic
+from google.cloud import firestore
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
+
+from gateway.decide import GatewayRequest, decide
+from identity.principals import parse_identity
+from registry.models import Workstream
 
 logger = logging.getLogger(__name__)
 
 _CALLER_HEADER = "X-Caller-Identity"
 _ANONYMOUS: str = "anonymous"
+
+
+class DecideBody(pydantic.BaseModel):
+    """HTTP-edge schema for POST /gateway/decide."""
+
+    deal_id: str
+    sender_identity: str
+    target_workstream: str
+    question: str
+    purpose: str
+
+
+class DecideResponseModel(pydantic.BaseModel):
+    """HTTP-edge schema for the decision verdict."""
+
+    request_id: str
+    decision: str
+    reason: str
+    rule_id: str | None
 
 
 class _CallerIdentityMiddleware(BaseHTTPMiddleware):
@@ -46,14 +78,47 @@ def _whoami(request: Request) -> dict[str, str]:
     return {"caller": caller}
 
 
-def create_app() -> fastapi.FastAPI:
-    """Build the gateway FastAPI application (no globals, no lifespan)."""
+def _make_decide_route(
+    gateway_client: firestore.Client,
+) -> Callable[[DecideBody], Awaitable[DecideResponseModel]]:
+    async def _decide(body: DecideBody) -> DecideResponseModel:
+        try:
+            sender = parse_identity(body.sender_identity)
+            target = Workstream(body.target_workstream)
+        except ValueError as exc:
+            raise fastapi.HTTPException(status_code=422, detail=str(exc)) from None
+        request = GatewayRequest(
+            request_id=uuid.uuid4().hex,
+            deal_id=body.deal_id,
+            sender=sender,
+            target_workstream=target,
+            question=body.question,
+            purpose=body.purpose,
+            ts=datetime.now(UTC),
+        )
+        decision = decide(gateway_client, request)
+        return DecideResponseModel(
+            request_id=decision.request_id,
+            decision=decision.verdict.value,
+            reason=decision.reason.value,
+            rule_id=decision.rule_id,
+        )
+
+    return _decide
+
+
+def create_app(
+    gateway_client: firestore.Client | None = None,
+) -> fastapi.FastAPI:
+    """Build the gateway FastAPI app; policy route only when a client is wired."""
     app = fastapi.FastAPI(title="Diligence Room - Agent Gateway")
     app.add_middleware(_CallerIdentityMiddleware)
     app.add_api_route("/healthz", _healthz, methods=["GET"])
     # /health alias: Google Frontend answers /healthz itself on Cloud Run
-    # (returns an edge 404 before the container sees the request), so the
+    # (returns an edge 404 before the container sees it), so the
     # deployed liveness probe uses /health.
     app.add_api_route("/health", _healthz, methods=["GET"])
     app.add_api_route("/whoami", _whoami, methods=["GET"])
+    if gateway_client is not None:
+        app.add_api_route("/gateway/decide", _make_decide_route(gateway_client), methods=["POST"])
     return app

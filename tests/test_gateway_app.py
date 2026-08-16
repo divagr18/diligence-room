@@ -1,4 +1,4 @@
-"""Tests for the Agent Gateway service shell (BUILD_PLAN D2-M7).
+"""Tests for the Agent Gateway service shell (BUILD_PLAN D2-M7 + D5-M3 HTTP).
 
 Offline tests only: fastapi.testclient.TestClient, no network.
 """
@@ -9,8 +9,10 @@ import logging
 
 import pytest
 from fastapi.testclient import TestClient
+from google.cloud import firestore
 
 from gateway.app import create_app
+from gateway.policy import PolicyStore
 from main import app as main_app
 
 
@@ -69,3 +71,97 @@ def test_root_main_app_serves_healthz() -> None:
     response = TestClient(main_app).get("/healthz")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "service": "gateway"}
+
+
+class TestDecideEndpoint:
+    """POST /gateway/decide (Day 5): policy verdicts over HTTP."""
+
+    @pytest.fixture()
+    def wired_client(self, firestore_client: firestore.Client) -> TestClient:
+        PolicyStore(firestore_client).seed_defaults("deal-falcon")
+        return TestClient(create_app(gateway_client=firestore_client))
+
+    def test_allow_decision(self, wired_client: TestClient) -> None:
+        response = wired_client.post(
+            "/gateway/decide",
+            json={
+                "deal_id": "deal-falcon",
+                "sender_identity": "legal-agent@deal-falcon",
+                "target_workstream": "finance",
+                "question": "What share of projected revenue comes from Customer X?",
+                "purpose": "revenue_concentration",
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["decision"] == "allow"
+        assert body["reason"] == "aggregate_permitted"
+        assert body["rule_id"] == "legal->finance"
+        assert body["request_id"]
+
+    def test_deny_decision_with_machine_reason(self, wired_client: TestClient) -> None:
+        response = wired_client.post(
+            "/gateway/decide",
+            json={
+                "deal_id": "deal-falcon",
+                "sender_identity": "legal-agent@deal-falcon",
+                "target_workstream": "hr",
+                "question": "q",
+                "purpose": "roster_review",
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["decision"] == "deny"
+        assert body["reason"] == "no_policy"
+
+    def test_malformed_identity_returns_422(self, wired_client: TestClient) -> None:
+        response = wired_client.post(
+            "/gateway/decide",
+            json={
+                "deal_id": "deal-falcon",
+                "sender_identity": "not-an-identity",
+                "target_workstream": "finance",
+                "question": "q",
+                "purpose": "revenue_concentration",
+            },
+        )
+        assert response.status_code == 422
+
+    def test_malformed_workstream_returns_422(self, wired_client: TestClient) -> None:
+        response = wired_client.post(
+            "/gateway/decide",
+            json={
+                "deal_id": "deal-falcon",
+                "sender_identity": "legal-agent@deal-falcon",
+                "target_workstream": "astrology",
+                "question": "q",
+                "purpose": "revenue_concentration",
+            },
+        )
+        assert response.status_code == 422
+
+    def test_missing_field_returns_422(self, wired_client: TestClient) -> None:
+        response = wired_client.post(
+            "/gateway/decide",
+            json={
+                "deal_id": "deal-falcon",
+                "sender_identity": "legal-agent@deal-falcon",
+                "target_workstream": "finance",
+                "question": "q",
+            },
+        )
+        assert response.status_code == 422
+
+    def test_route_absent_without_gateway_client(self) -> None:
+        response = TestClient(create_app()).post(
+            "/gateway/decide",
+            json={
+                "deal_id": "deal-falcon",
+                "sender_identity": "legal-agent@deal-falcon",
+                "target_workstream": "finance",
+                "question": "q",
+                "purpose": "revenue_concentration",
+            },
+        )
+        assert response.status_code == 404

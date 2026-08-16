@@ -58,6 +58,28 @@ class TestFocusAreas:
                 assert term in joined, f"{workstream} missing focus term {term!r}"
 
 
+class TestGatewayHook:
+    """Day-5: legal must ask finance through the gateway, never read directly."""
+
+    def test_legal_prompt_hooks_gateway_to_finance(self) -> None:
+        prompt = legal_prompts.SYSTEM_PROMPT
+        assert "ask_agent" in prompt
+        assert "change_of_control_exposure" in prompt
+        assert "finance" in prompt
+
+    def test_legal_prompt_forbids_direct_financial_reads(self) -> None:
+        assert "never read financial documents directly" in legal_prompts.SYSTEM_PROMPT
+
+    def test_finance_prompt_requires_scalar_sources(self) -> None:
+        prompt = finance_prompts.SYSTEM_PROMPT
+        assert "scalar" in prompt
+        assert "source document" in prompt
+
+    def test_hook_does_not_displace_finding_contract(self) -> None:
+        assert FINDING_JSON_CONTRACT in legal_prompts.SYSTEM_PROMPT
+        assert FINDING_JSON_CONTRACT in finance_prompts.SYSTEM_PROMPT
+
+
 class TestFindingContract:
     def test_contract_names_every_agent_owned_field(self) -> None:
         for field_name in AGENT_OWNED_FIELDS:
