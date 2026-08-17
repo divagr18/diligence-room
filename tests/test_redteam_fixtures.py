@@ -11,15 +11,30 @@ from pathlib import Path
 
 import pytest
 import yaml
+from google.cloud import firestore
 
+from ingestion.models import ClassHint, RouteDecision
 from ingestion.parsing import LocalParser
+from ingestion.pipeline import IngestContext, ingest_blob
 from ingestion.sentinel import FakeSentinel
+from runtime.events import EventType, InMemoryPublisher
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ATTACKS_ROOT = REPO_ROOT / "redteam" / "attacks"
 EXPECTED_YAML = REPO_ROOT / "redteam" / "expected.yaml"
 
 DEAL = "deal-falcon"
+
+
+class _CountingClassifier:
+    """Counts classify calls so we can prove tripwired docs never reach routing."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def classify(self, document_id: str, text: str, hint: ClassHint | None) -> RouteDecision:
+        self.calls += 1
+        return RouteDecision(document_id, "other", None, 0.0, ("counting",))
 
 
 def _expected_fixtures() -> list[dict[str, str]]:
@@ -86,3 +101,31 @@ class TestRedteamBatch1:
                 continue
             verdict = FakeSentinel().injection_tripwire(_attack_text(fx["path"]))
             assert any("exfiltration" in pattern for pattern in verdict.patterns), fx["path"]
+
+
+class TestRedteamPipelineQuarantine:
+    """The committed attack fixtures, driven through the FULL pipeline, must be
+    quarantined before routing — never reaching the classifier or any agent."""
+
+    def test_every_attack_fixture_quarantined_end_to_end(
+        self, firestore_client: firestore.Client
+    ) -> None:
+        classifier = _CountingClassifier()
+        context = IngestContext(
+            client=firestore_client,
+            publisher=InMemoryPublisher(),
+            sentinel=FakeSentinel(),
+            classifier=classifier,
+        )
+        for fx in _expected_fixtures():
+            relative = fx["path"]
+            blob = (ATTACKS_ROOT / relative).read_bytes()
+            calls_before = classifier.calls
+            result = ingest_blob(context, DEAL, relative.replace("/", "_"), blob)
+            assert result.status == "tripwired", f"{relative} must be quarantined"
+            assert result.route is None, f"{relative} must not be routed"
+            assert classifier.calls == calls_before, f"{relative} reached the classifier"
+            security = [event for event in result.events if event.type is EventType.SECURITY_EVENT]
+            assert len(security) == 1, f"{relative} must emit exactly one security event"
+            assert security[0].payload["reason"] == "injection_tripwire"
+            assert security[0].payload["document_id"] == relative.replace("/", "_")
