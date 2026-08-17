@@ -1,0 +1,92 @@
+DAY 6 LIVE FLEET WINDOW (BUILD_PLAN D6-M2..M6 live beat, scenario S7)
+Executed: 2026-08-17 ~08:49-08:57 UTC (08:48:59Z window open, 08:56:59Z teardown verified)
+Project: diligence-room (910285417505) — undeleted for this window only, deleted after.
+Provenance: runner stdout captured via tee during execution; teardown via gcloud receipts.
+
+====================================================================
+0. SCOPE + AUTH MODEL
+====================================================================
+Checkpoint-1 beat "deep four produce independent findings" run LIVE: each deep
+workstream agent built FROM ITS REGISTRY MANIFEST (agents.base_agent
+.build_agent_from_manifest — D6-M1 factory) and driven through a real
+gemini-3.5-flash agent loop (Vertex ADC, location=global; no Gemini Developer
+API key needed). Every finding passed the evidence gate (finding_create
+verifies each verbatim_span is an actual substring of the cited source
+document) — a real model quoting real spans through the gate.
+
+====================================================================
+1. WINDOW SEQUENCE
+====================================================================
+$ gcloud projects undelete diligence-room
+  -> Restored project -> lifecycleState ACTIVE (08:48:59Z)
+$ uv run python infra/bootstrap_gcp.py
+  (first attempt raced the undelete on billing link; re-run completed:
+   "Bootstrap complete for project 'diligence-room'")
+$ gcloud firestore databases describe --database=(default) -> nam5 (ready)
+$ uv run python scripts/run_d6_live_fleet.py --deal-id deal-falcon --confirm-live
+
+====================================================================
+2. RUNNER OUTPUT (verbatim)
+====================================================================
+[fleet] registry seeded (+0); total manifests=8
+[fleet:legal] tool call: data_room_read
+[fleet:legal] tool call: ask_agent
+[fleet:legal] tool call: finding_create
+[fleet:legal] text: '{ "title": "Material Change-of-Control Termination Right in Key Customer Contract", "summary": "The Master Services Agreement with Meridian Logistics, Inc. contains a bilateral change-of-control t...'
+[fleet:legal] findings created this run: 1
+[fleet:finance] tool call: data_room_read
+[fleet:finance] tool call: finding_create
+[fleet:finance] text: '{ "title": "Significant Customer Concentration Risk in FY27 Projected Revenue", "summary": "Analysis of the FY27 projected revenue reveals significant customer concentration risk, with the top thr...'
+[fleet:finance] findings created this run: 1
+[fleet:hr] tool call: data_room_read
+[fleet:hr] tool call: finding_create
+[fleet:hr] text: '{ "title": "Key-Person Resignation Risk for Major Customer Relationship", "summary": "Dana Whitfield, the VP of Customer Success, has resigned with an effective departure date of October 13, 2026.'
+[fleet:hr] findings created this run: 1
+[fleet:ip_tech] tool call: data_room_read
+[fleet:ip_tech] tool call: finding_create
+[fleet:ip_tech] text: '{ "title": "Unsupported Infrastructure and Vendor End-of-Life for Fleet Orchestration Platform", "summary": "The Fleet Orchestration Platform of Acme Robotics, Inc., which serves the Meridian Logi...'
+[fleet:ip_tech] findings created this run: 1
+[fleet] deep workstreams with >=1 finding: 4/4
+[fleet] PASS
+EXIT: 0   (run window 08:54:22-08:56:23 UTC-equivalent local timestamps)
+
+Notes:
+- Registry already held 8 manifests (+0 seeded) from the live window bootstrap.
+- The legal agent also exercised the governed ask_agent gateway tool inside its
+  loop (Day-5 corridor live-reached from a manifest-built agent).
+- Finding titles are the live model's own wording; evidence spans were gated
+  before persistence (fabricated spans would have been rejected, not stored).
+- Live Firestore finding documents were recorded by the runner counters; a
+  separate post-run document dump was not taken before teardown (deleted with
+  the project). The runner's per-workstream counters + captured finding JSON
+  are the evidence of record for this window.
+
+====================================================================
+3. TEARDOWN RECEIPT
+====================================================================
+$ gcloud billing budgets delete e01d8195-b2f7-454f-bebc-71bda0c923f4 \
+    --billing-account=012D4F-261885-E006CE --quiet
+  -> "Deleted budget [e01d8195-b2f7-454f-bebc-71bda0c923f4]."
+  (window's diligence-room-hard-cap budget; pre-existing account-level alert
+   a552dbc2 left untouched, as in prior windows)
+$ gcloud projects delete diligence-room --quiet
+  -> shutdown acknowledged
+$ gcloud projects describe diligence-room --format="value(lifecycleState)"
+  -> DELETE_REQUESTED   (verified 2026-08-17T08:56:59Z UTC)
+
+All live state from the window (registry, policy corridor, findings, events,
+partitions) went with the project deletion.
+
+====================================================================
+4. COST
+====================================================================
+~12-16 Flash calls (4 agent loops, a few tool rounds each) within the window's
+hard-cap budget; window open < 10 minutes. Effectively $0.
+
+====================================================================
+5. S7 VERDICT
+====================================================================
+PASS — 4/4 deep workstreams produced independent, evidence-gated findings
+through manifest-built agents running real gemini-3.5-flash, then the project
+was torn down to DELETE_REQUESTED. Offline determinism of the same write path
+is proven by tests/test_deep_four.py (8 tests, emulator).
