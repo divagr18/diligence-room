@@ -1,9 +1,11 @@
-"""Day-4 ingestion pipeline assembly (BUILD_PLAN D4-M7).
+"""Day-4 ingestion pipeline assembly (BUILD_PLAN D4-M7; armor D7-M3).
 
 detect -> lineage (dup suppression) -> parse -> sentinel tripwire ->
-PII mark -> classify -> route event. Every decision is emitted to the
-canonical event log and the publisher; poisoned documents stop at the
-tripwire (SECURITY_EVENT) and never reach the classifier (cost gate).
+PII mark -> classify -> armor screen (project rules + optional managed Model
+Armor) -> route event. Every decision is emitted to the canonical event log
+and the publisher; poisoned documents stop at the tripwire or the armor
+screen (SECURITY_EVENT) and never reach the classifier's route or any agent
+context (cost gate + vision §7.6).
 """
 
 from __future__ import annotations
@@ -15,6 +17,8 @@ from typing import Protocol
 from google.cloud import firestore
 from opentelemetry.trace import Tracer
 
+from armor.model_armor import ModelArmorModel, run_armor
+from armor.quarantine import QuarantineStore
 from ingestion.chunking import chunk
 from ingestion.classifier import Classifier
 from ingestion.lineage import register_document
@@ -35,6 +39,7 @@ _PIPELINE_ACTOR = "ingestion-pipeline"
 
 STATUS_ROUTED = "routed"
 STATUS_TRIPWIRED = "tripwired"
+STATUS_QUARANTINED = "quarantined"
 STATUS_SUPPRESSED = "suppressed"
 STATUS_NEEDS_OCR = "needs_ocr"
 
@@ -49,6 +54,7 @@ class IngestContext:
     publisher: _Publisher
     sentinel: SentinelModel
     classifier: Classifier
+    armor: ModelArmorModel | None = None
     parser: Parser = field(default_factory=LocalParser)
     tracer: Tracer | None = None
 
@@ -71,9 +77,10 @@ def ingest_blob(
     blob: bytes,
     bucket: str | None = None,
 ) -> IngestResult:
-    """Run the full Day-4 chain over one document; emit events as it goes."""
+    """Run the full Day-4/Day-7 chain over one document; emit events as it goes."""
     emitted: list[EventEnvelope] = []
     event_log = EventLog(context.client)
+    quarantiner = QuarantineStore(context.client)
     tracer = context.tracer
 
     def emit(event: EventEnvelope) -> None:
@@ -122,6 +129,16 @@ def ingest_blob(
         if tracer is not None:
             with tripwire_span(tracer) as span:
                 span.set_attribute("tripwire.reason", report.tripwire.reason)
+        quarantiner.quarantine(
+            deal_id,
+            document_id,
+            checksum=record.checksum,
+            version=record.version,
+            layer="sentinel_tripwire",
+            reason_codes=tuple(report.tripwire.patterns),
+            publisher=context.publisher,
+            emit_event=False,
+        )
         emit(
             new_event(
                 deal_id,
@@ -146,6 +163,39 @@ def ingest_blob(
             span.set_attribute("route.workstream", decision.workstream or "unrouted")
     else:
         decision = context.classifier.classify(document_id, parsed.text, report.class_hint)
+
+    armor_verdict = run_armor(parsed.text, managed=context.armor)
+    if armor_verdict.blocked:
+        quarantiner.quarantine(
+            deal_id,
+            document_id,
+            checksum=record.checksum,
+            version=record.version,
+            layer="model_armor",
+            reason_codes=armor_verdict.reason_codes,
+            rule_ids=armor_verdict.rule_ids,
+            publisher=context.publisher,
+            emit_event=False,
+        )
+        emit(
+            new_event(
+                deal_id,
+                _PIPELINE_ACTOR,
+                EventType.SECURITY_EVENT,
+                {
+                    "document_id": document_id,
+                    "reason": "armor_quarantine",
+                    "layer": "model_armor",
+                    "reason_codes": list(armor_verdict.reason_codes),
+                    "rule_ids": list(armor_verdict.rule_ids),
+                    "checksum": record.checksum,
+                    "version": record.version,
+                },
+            )
+        )
+        return IngestResult(
+            document_id, deal_id, STATUS_QUARANTINED, None, False, False, tuple(emitted)
+        )
 
     dlp_required = heavy_pii(report.pii_spans)
     emit(
