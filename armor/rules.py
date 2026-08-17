@@ -52,7 +52,7 @@ _PROJECT_RULES: Final[tuple[tuple[str, str, re.Pattern[str]], ...]] = (
         RULE_EXFIL_LINK,
         "exfiltration-intent link or known-bad domain",
         re.compile(
-            r"\b(?:upload|exfiltrate|post|push|mirror|sync|copy|send)\b[^\n]{0,80}https?://"
+            r"\b(?:upload|exfiltrate|post|push|mirror|sync|copy|send)\b[\s\S]{0,80}https?://"
             r"|https?://[^\s]*(?:attacker|evil|exfil|drop|leak)[^\s]*",
             re.IGNORECASE,
         ),
@@ -74,8 +74,8 @@ _PROJECT_RULES: Final[tuple[tuple[str, str, re.Pattern[str]], ...]] = (
         "imperative mutation of another workstream's state",
         re.compile(
             r"\b(?:mark|set|update|change|delete|dismiss|close|resolve|overwrite|alter)\b"
-            r"[^\n]{0,80}\b(?:legal|finance|hr|ip[ &_]*tech|tax|regulatory|esg|real[ _]estate)\b"
-            r"[^\n]{0,60}\b(?:findings?|records?|rosters?|state|status|severit(?:y|ies)"
+            r"[\s\S]{0,80}\b(?:legal|finance|hr|ip[ &_]*tech|tax|regulatory|esg|real[ _]estate)\b"
+            r"[\s\S]{0,60}\b(?:findings?|records?|rosters?|state|status|severit(?:y|ies)"
             r"|scores?|items|partitions?|data)\b",
             re.IGNORECASE,
         ),
@@ -84,7 +84,7 @@ _PROJECT_RULES: Final[tuple[tuple[str, str, re.Pattern[str]], ...]] = (
         RULE_CROSS_WS_ESCALATION,
         "permission override or privilege escalation directive",
         re.compile(
-            r"\b(?:override|bypass|escalate|elevate|grant|extend)\b[^\n]{0,60}"
+            r"\b(?:override|bypass|escalate|elevate|grant|extend)\b[\s\S]{0,60}"
             r"\b(?:your\s+|the\s+|agent\s+)?(?:permissions?|privileges?|restrictions?|controls?"
             r"|boundar(?:y|ies)|access(?:\s+(?:rights?|level|scope|restrictions?))?)\b"
             r"|\byou\s+are\s+(?:now\s+)?(?:authorized|permitted|granted)\s+to\b",
@@ -95,7 +95,7 @@ _PROJECT_RULES: Final[tuple[tuple[str, str, re.Pattern[str]], ...]] = (
         RULE_IGNORE_VARIANTS,
         "ignore/override-policy instruction variant",
         re.compile(
-            r"\b(?:override|disregard|ignore|forget|suspend)\b[^\n]{0,45}"
+            r"\b(?:override|disregard|ignore|forget|suspend)\b[\s\S]{0,45}"
             r"\b(?:polic(?:y|ies)|rules?|guidelines|guardrails|directives|instructions"
             r"|system\s+prompt)\b",
             re.IGNORECASE,
@@ -105,9 +105,9 @@ _PROJECT_RULES: Final[tuple[tuple[str, str, re.Pattern[str]], ...]] = (
         RULE_TOOL_POISONING,
         "tool-call poisoning directive",
         re.compile(
-            r"\bwhen\s+(?:you\s+)?(?:calling|invoking|using|running)\b[^\n]{0,60}"
+            r"\bwhen\s+(?:you\s+)?(?:calling|invoking|using|running)\b[\s\S]{0,60}"
             r"\b(?:a\s+|the\s+)?(?:tool|function|finding_create|data_room_read|ask_agent)\b"
-            r"|\b(?:attach|include|append|hide)\b[^\n]{0,60}\b(?:to|in)\s+(?:the\s+)?"
+            r"|\b(?:attach|include|append|hide)\b[\s\S]{0,60}\b(?:to|in)\s+(?:the\s+)?"
             r"(?:request|payload|tool\s+call)\b",
             re.IGNORECASE,
         ),
@@ -117,7 +117,7 @@ _PROJECT_RULES: Final[tuple[tuple[str, str, re.Pattern[str]], ...]] = (
         "cross-deal reconnaissance",
         re.compile(
             r"\bdeal-[a-z]+\b"
-            r"|\b(?:list|read|merge|access|copy|browse|enumerate)\b[^\n]{0,60}"
+            r"|\b(?:list|read|merge|access|copy|browse|enumerate)\b[\s\S]{0,60}"
             r"\b(?:other|another|sibling|prior|previous|all)\s+deals?\b",
             re.IGNORECASE,
         ),
