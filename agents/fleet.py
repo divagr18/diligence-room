@@ -36,6 +36,13 @@ DEEP_WORKSTREAM_DOCUMENTS: Final[Mapping[Workstream, str]] = {
     Workstream.IP_TECH: "tech_inventory.pdf",
 }
 
+DEEP_WORKSTREAM_CATEGORIES: Final[Mapping[Workstream, str]] = {
+    Workstream.LEGAL: "contracts",
+    Workstream.FINANCE: "financials",
+    Workstream.HR: "rosters",
+    Workstream.IP_TECH: "tech-inventory",
+}
+
 _CUSTOMER_X = "Meridian Logistics, Inc."
 
 
@@ -178,6 +185,7 @@ def run_workstream_offline(
             {
                 "verbatim_span": fact.verbatim_span,
                 "document_id": fact.document_id,
+                "category": DEEP_WORKSTREAM_CATEGORIES[workstream],
                 "chunk_ref": fact.chunk_ref,
             }
         ],

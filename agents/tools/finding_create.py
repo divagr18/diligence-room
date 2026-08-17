@@ -12,17 +12,33 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol
 
 from google.cloud import firestore
 
 from agents.tools.data_room_read import DocSource
+from identity.authz import Action, Resource, can, denial_envelope
 from identity.principals import Principal
 from ingestion.parsing import LocalParser
-from memory.findings import Evidence, Finding, FindingSeverity, FindingsStore, FindingStatus
+from memory.findings import (
+    DuplicateFindingError,
+    Evidence,
+    Finding,
+    FindingSeverity,
+    FindingsStore,
+    FindingStatus,
+)
 from memory.partitions import partition_collection
+from runtime.events import EventEnvelope
 
 _SEVERITIES = frozenset(severity.value for severity in FindingSeverity)
+
+_AUTH_DENIED = "evidence_unauthorized"
+_INVALID_CATEGORY = "invalid_category"
+
+
+class _EventPublisher(Protocol):
+    def publish(self, event: EventEnvelope) -> str: ...
 
 
 def _reject(reason: str, detail: str) -> dict[str, Any]:
@@ -37,31 +53,68 @@ def _string_list(value: Any) -> tuple[str, ...]:
 
 def _structural_evidence(
     entries: Any,
-) -> tuple[tuple[str, str, str | None], ...] | None:
-    """Validate evidence structure; return (span, document_id, chunk_ref) tuples.
+) -> tuple[tuple[str, str, str | None, str], ...] | None:
+    """Validate evidence structure; return (span, document_id, chunk_ref, category).
 
     Returns None for any structural problem (missing/empty/non-list evidence,
-    or an entry lacking a non-empty verbatim_span + document_id).
+    or an entry lacking a non-empty verbatim_span + document_id + category).
     """
     if not isinstance(entries, list) or not entries:
         return None
-    parsed: list[tuple[str, str, str | None]] = []
+    parsed: list[tuple[str, str, str | None, str]] = []
     for entry in entries:
         if not isinstance(entry, dict):
             return None
         span = entry.get("verbatim_span")
         document_id = entry.get("document_id")
+        category = entry.get("category")
         if not isinstance(span, str) or not span.strip():
             return None
         if not isinstance(document_id, str) or not document_id:
             return None
+        if not isinstance(category, str) or not category:
+            return None
         chunk_ref = entry.get("chunk_ref")
-        parsed.append((span, document_id, chunk_ref if isinstance(chunk_ref, str) else None))
+        parsed.append(
+            (span, document_id, chunk_ref if isinstance(chunk_ref, str) else None, category)
+        )
     return tuple(parsed)
 
 
-def _verify_evidence(
-    entries: tuple[tuple[str, str, str | None], ...],
+def _authorize_evidence(
+    entries: tuple[tuple[str, str, str | None, str], ...],
+    principal: Principal,
+    publisher: _EventPublisher | None,
+) -> str | None:
+    """Authorize every cited document; return None when all are readable.
+
+    The evidence gate must not become a read bypass: every cited document is
+    checked against agent->data AuthZ exactly like data-room-read. Returns
+    ``_INVALID_CATEGORY`` for a category unknown to the ACL matrix, or
+    ``_AUTH_DENIED`` when the principal may not read a cited document (a denial
+    event is emitted when a publisher is supplied).
+    """
+    for _span, document_id, _chunk_ref, category in entries:
+        try:
+            resource = Resource(
+                deal_id=principal.deal_id,
+                workstream=None,
+                category=category,
+                name=document_id,
+            )
+        except ValueError:
+            return _INVALID_CATEGORY
+        allowed, denial = can(principal, Action.READ, resource)
+        if not allowed:
+            assert denial is not None  # noqa: S101 — guaranteed by can() contract
+            if publisher is not None:
+                publisher.publish(denial_envelope(principal, Action.READ, resource, denial))
+            return _AUTH_DENIED
+    return None
+
+
+def _verify_spans(
+    entries: tuple[tuple[str, str, str | None, str], ...],
     principal: Principal,
     doc_source: DocSource,
 ) -> tuple[Evidence, ...] | None:
@@ -71,7 +124,7 @@ def _verify_evidence(
     (document missing, unparseable, needs OCR, or span not present in text).
     """
     verified: list[Evidence] = []
-    for span, document_id, chunk_ref in entries:
+    for span, document_id, chunk_ref, _category in entries:
         blob = doc_source.read(document_id)
         if blob is None:
             return None
@@ -87,6 +140,7 @@ def make_finding_create(
     client: firestore.Client,
     doc_source: DocSource,
     now: datetime | None = None,
+    publisher: _EventPublisher | None = None,
 ) -> Any:
     """Bind the finding-create tool to *principal* (one agent, one deal)."""
     store = FindingsStore(client)
@@ -98,13 +152,14 @@ def make_finding_create(
             finding_json: One JSON object following the finding contract:
                 title, summary, severity (informational|low|medium|high|
                 critical), confidence (0.0-1.0), evidence[] with exact
-                verbatim_span + document_id, source_documents[],
+                verbatim_span + document_id + category (the data-room category
+                of the cited document), source_documents[],
                 affected_entities[], questions[].
 
         Returns:
             Dict with "decision" ("created" plus "finding_id", or "reject"
             plus machine-readable "reason": invalid_contract |
-            evidence_not_verifiable).
+            evidence_unauthorized | evidence_not_verifiable | duplicate_finding).
         """
         try:
             payload = json.loads(finding_json)
@@ -132,9 +187,17 @@ def make_finding_create(
         if structural is None:
             return _reject(
                 "invalid_contract",
-                "evidence must be a non-empty list of {verbatim_span, document_id}",
+                "evidence must be a non-empty list of {verbatim_span, document_id, category}",
             )
-        evidence = _verify_evidence(structural, principal, doc_source)
+        auth_outcome = _authorize_evidence(structural, principal, publisher)
+        if auth_outcome == _INVALID_CATEGORY:
+            return _reject("invalid_contract", "evidence category is unknown to the data-room ACL")
+        if auth_outcome is not None:
+            return _reject(
+                _AUTH_DENIED,
+                "evidence cites a document this agent is not authorized to read",
+            )
+        evidence = _verify_spans(structural, principal, doc_source)
         if evidence is None:
             return _reject(
                 "evidence_not_verifiable",
@@ -169,7 +232,12 @@ def make_finding_create(
             affected_entities=_string_list(payload.get("affected_entities")),
             questions=_string_list(payload.get("questions")),
         )
-        store.create(finding)
+        try:
+            store.create(finding)
+        except DuplicateFindingError:
+            # A rerun must not surface as an unhandled exception to the ADK
+            # model loop; report it through the same structured contract.
+            return _reject("duplicate_finding", f"finding {finding_id} already exists")
         partition_collection(client, principal.deal_id, principal.workstream).document(
             finding_id
         ).set(

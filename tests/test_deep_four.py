@@ -121,10 +121,8 @@ class TestDeepFour:
     def test_rerun_is_idempotent_via_duplicate_guard(
         self, firestore_client: firestore.Client
     ) -> None:
-        from memory.findings import DuplicateFindingError
-
         doc_source = DatasetDocSource()
         run_workstream_offline(firestore_client, DEAL, Workstream.HR, doc_source=doc_source)
-        with pytest.raises(DuplicateFindingError):
+        with pytest.raises(RuntimeError, match="duplicate_finding"):
             run_workstream_offline(firestore_client, DEAL, Workstream.HR, doc_source=doc_source)
         assert len(FindingsStore(firestore_client).list_for_workstream(DEAL, Workstream.HR)) == 1

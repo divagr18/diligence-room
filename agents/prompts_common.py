@@ -18,6 +18,7 @@ OUTPUT CONTRACT - emit exactly ONE JSON object per finding, no prose outside it:
     {
       "verbatim_span": "<EXACT contiguous quote copied from the source document>",
       "document_id": "<id of the document the quote was copied from>",
+      "category": "<data-room category of that document, e.g. contracts>",
       "chunk_ref": "<section/page/sheet locator within the document, or null>"
     }
   ],
@@ -36,6 +37,10 @@ HARD RULES:
    finding_id, deal_id, workstream, status, owner, timestamps, and trace ids.
 4. If the documents contain no finding-worthy content for your workstream,
    output exactly: {"no_finding": true, "reason": "<one sentence>"}.
+5. Every evidence entry's category must name the data-room category of the
+   cited document. The runtime enforces agent->data authorization on each
+   citation and rejects findings that reference documents outside your
+   workstream.
 """
 
 
