@@ -142,7 +142,12 @@ def make_finding_create(
                 "substring of the cited document's parsed text",
             )
 
-        finding_id = uuid.uuid4().hex[:12]
+        requested_id = payload.get("finding_id")
+        finding_id = (
+            requested_id
+            if isinstance(requested_id, str) and requested_id.strip()
+            else uuid.uuid4().hex[:12]
+        )
         stamp = now if now is not None else datetime.now(UTC)
         source_documents = _string_list(payload.get("source_documents")) or tuple(
             entry.document_id for entry in evidence
