@@ -23,6 +23,7 @@ class EventType(StrEnum):
     FINDING_CREATED = "finding.created"
     GATEWAY_DECISION = "gateway.decision"
     SECURITY_EVENT = "security.event"
+    DEAD_LETTERED = "runner.dead_lettered"
 
 
 def _canonical_json(payload: Mapping[str, object]) -> str:

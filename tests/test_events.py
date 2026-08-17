@@ -1,7 +1,8 @@
-"""Event bus contract tests (BUILD_PLAN D2-M1 + D4-M7, vision §7.2).
+"""Event bus contract tests (BUILD_PLAN D2-M1 + D4-M7 + D6-M3, vision §7.2).
 
-Covers: the Day-2 event types plus the Day-4 pipeline additions
-(document.parsed / document.routed), the envelope contract
+Covers: the Day-2 event types, the Day-4 pipeline additions
+(document.parsed / document.routed), the Day-6 dead-letter type
+(runner.dead_lettered), the envelope contract
 {event_id, deal_id, ts, actor, type, payload, dedupe_key}, deterministic
 dedupe keys (idempotency = event hash, D6-M2), JSON round-trip, and the
 publisher interface with a Pub/Sub implementation tested against a stub client.
@@ -33,6 +34,7 @@ class TestEventType:
             "finding.created",
             "gateway.decision",
             "security.event",
+            "runner.dead_lettered",
         }
 
 
