@@ -104,11 +104,13 @@ def build_agent_from_manifest(
         raise ValueError(f"agent {agent_id!r} is not approved")
 
     version = store.get_version(agent_id, manifest.version)
+    if not version.approved:
+        raise ValueError(f"agent {agent_id!r} references unapproved version {manifest.version!r}")
     principal: Principal = bind_manifest(manifest, deal_id)
     instruction = _resolve_prompt_ref(version.prompt_ref)
 
     data_room_tool = make_data_room_read(principal, publisher, doc_source)
-    finding_tool = make_finding_create(principal, client, doc_source)
+    finding_tool = make_finding_create(principal, client, doc_source, publisher=publisher)
     gateway_client = LocalGatewayClient(
         client=client, responders={Workstream.FINANCE: OfflineFinanceResponder()}
     )

@@ -109,3 +109,20 @@ class TestFactory:
             build_agent_from_manifest(
                 firestore_client, "legal", DEAL, publisher, DatasetDocSource()
             )
+
+    def test_unapproved_version_rejected(self, firestore_client: firestore.Client) -> None:
+        store = AgentRegistryStore(firestore_client)
+        seed_registry(store)
+        version_id = store.get_manifest("legal").version
+        (
+            firestore_client.collection("agents")
+            .document("legal")
+            .collection("versions")
+            .document(version_id)
+            .update({"approved": False})
+        )
+        publisher = _LogPublisher(firestore_client)
+        with pytest.raises(ValueError, match="unapproved version"):
+            build_agent_from_manifest(
+                firestore_client, "legal", DEAL, publisher, DatasetDocSource()
+            )
