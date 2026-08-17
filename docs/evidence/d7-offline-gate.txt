@@ -1,0 +1,71 @@
+DAY 7 OFFLINE GATE (BUILD_PLAN Phase 3, scenarios S9 + escalation)
+Executed (UTC): 2026-08-17
+Scope: Checkpoint-1 GO-as-planned (docs/decisions/cp1.md) + Model Armor core
+(D7-M1..M3) + red-team runner v0 (D7-M4) + attack ledger 10 (D7-M5) +
+escalation path (D7-M6), all offline against the Firestore emulator.
+
+====================================================================
+1. QUALITY BATTERY (full suite, emulator-backed)
+====================================================================
+$ uv run pytest tests/ -q
+716 passed, 2 warnings in 19.72s
+
+$ uv run mypy ingestion tests runtime observability scripts gateway memory identity registry infra agents evals dashboard armor compliance coordination redteam --strict
+Success: no issues found in 148 source files
+
+$ uv run ruff check .
+All checks passed!
+$ uv run ruff format --check .
+160 files already formatted
+
+====================================================================
+2. GATE ITEM A - hostile documents never reach agent context
+====================================================================
+Full 10-fixture ledger driven through the real pipeline offline:
+see d7-redteam.txt (runner exit 0; 10/10 blocked BEFORE routing; every
+block emits a security event and writes a deals/{deal}/quarantined record).
+Layers: sentinel tripwire catches batch #1 pre-classification; the armor
+project-rules layer (armor/rules.py) catches batch #2 post-classification.
+
+====================================================================
+3. GATE ITEM B - escalation fires for a forced critical finding
+====================================================================
+$ uv run pytest tests/test_escalation.py tests/test_events.py -v
+tests/test_escalation.py::TestEscalationThroughFindingCreate::test_critical_finding_fires_event_and_inbox_entry PASSED
+tests/test_escalation.py::TestEscalationThroughFindingCreate::test_high_severity_finding_does_not_escalate PASSED
+tests/test_escalation.py::TestEscalateFunctions::test_escalate_critical_rejects_non_critical PASSED
+tests/test_escalation.py::TestEscalateFunctions::test_escalate_if_critical_noop_for_non_critical PASSED
+tests/test_escalation.py::TestEscalateFunctions::test_escalate_critical_returns_record_and_emits_event PASSED
+tests/test_escalation.py::TestEscalateFunctions::test_escalate_without_publisher_writes_inbox_only PASSED
+16 passed in 4.13s
+
+A critical finding written through finding_create fires a finding.escalated
+event (deal-lead notification) plus a dashboard-readable inbox entry at
+deals/{deal}/inbox/{finding_id}; non-critical findings never escalate.
+
+====================================================================
+4. HONEST STAND-INS (carried forward, disclosed)
+====================================================================
+- FakeSentinel remains the offline sentinel (Gemma never executed live;
+  disclosed since Day 4, docs/decisions/gemma-serving.md).
+- The managed Model Armor API (google-cloud-modelarmor) is exercised live
+  only; this offline gate rides the deterministic project-rules layer. The
+  live managed-API window is recorded separately (d7-live-armor.txt).
+- LiveModelArmor is fail-closed: an API error or unparseable verdict blocks
+  the document rather than routing it.
+
+====================================================================
+5. DAY 7 COMMITS (this gate)
+====================================================================
+ee16e24 docs(decisions): CP1 ruling - GO as planned (D7-M0)
+437d712 feat(armor): project rules layer (D7-M2)
+2d8febc feat(armor): Model Armor client template config + wrapper (D7-M1)
+86f98c6 feat(armor): quarantine store (D7-M3)
+a9dde60 feat(pipeline): armor screen after classification + tripwire quarantine records
+807781c fix(armor): newline-tolerant rule spans (D7-M2 hardening)
+e28998f feat(redteam): attack ledger to 10, layer-aware expected.yaml (D7-M5)
+3fe5a02 feat(redteam): runner v0 + vision S13 scorecard (D7-M4)
+7f7aa91 feat(coordination): escalation path, wired into finding-create (D7-M6)
+
+VERDICT: PASS - both Day-7 gate items proven offline with real-surface
+artifacts; no hostile document reached routing or any agent context.

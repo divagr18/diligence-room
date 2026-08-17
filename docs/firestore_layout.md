@@ -79,6 +79,37 @@ with purposes `revenue_concentration`, `change_of_control_exposure`,
 | supersedes | string \| null | prior document id or logical key |
 | ingested_at | string | ISO timestamp |
 | status | string | `new` / `suppressed` / `new_version` |
+| security_status | string \| absent | `quarantined` when blocked by the tripwire or armor screen (Day 7, D7-M3); absent when cleared |
+
+### `deals/{deal_id}/quarantined/{document_id}` — quarantine record (Day 7, D7-M3)
+
+Written when a document is blocked before routing (sentinel tripwire or armor
+screen). Quarantined documents never reach agent context.
+
+| Field | Type | Notes |
+|---|---|---|
+| deal_id / document_id | string | |
+| checksum | string | sha256 of the blocked content |
+| version | int | lineage version at block time |
+| layer | string | `sentinel_tripwire` / `model_armor` |
+| reason_codes | array\<string\> | sentinel patterns or armor reason codes |
+| rule_ids | array\<string\> | project-rule ids (armor layer) |
+| security_status | string | always `quarantined` |
+| ts | string | ISO timestamp |
+
+### `deals/{deal_id}/inbox/{finding_id}` — deal-lead inbox entry (Day 7, D7-M6)
+
+Dashboard-readable notification written when a critical finding escalates
+(vision §10). One entry per escalated finding, keyed by finding id.
+
+| Field | Type | Notes |
+|---|---|---|
+| kind | string | `escalation` |
+| finding_id / title / owner | string | |
+| severity / workstream | string | `critical` / emitting workstream |
+| message | string | deal-lead notification text |
+| status | string | `open` |
+| created_at | string | ISO timestamp |
 
 ### `agents/{agent_id}` — AgentManifest (`registry.models.AgentManifest`)
 

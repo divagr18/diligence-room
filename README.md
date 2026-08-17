@@ -115,6 +115,25 @@ window; the Gemma serving decision is recorded in
 | HTTP edge | `uv run pytest tests/test_gateway_app.py` | `POST /gateway/decide` ALLOW/DENY/422 |
 | **E2E gate (Phase 3)** | `uv run pytest tests/test_gateway_e2e.py` | CoC finding -> ALLOW -> 18.3% linked finding -> denied direct read |
 
+## Runbook (Day 7 — Checkpoint 1 + Model Armor, offline)
+
+| Step | Command | Expected |
+|---|---|---|
+| CP1 ruling | `docs/decisions/cp1.md` | GO as planned, grounded in Day-6 gate evidence |
+| Project rules | `uv run pytest tests/test_armor_rules.py` | stable rule ids; zero false positives on the dataset |
+| Armor client | `uv run pytest tests/test_model_armor.py` | template config, sanitize wrapper, fail-closed live client |
+| Quarantine store | `uv run pytest tests/test_quarantine.py` | record write, lineage `security_status` flip, security event |
+| Pipeline armor screen | `uv run pytest tests/test_pipeline.py` | armor blocks after classify -> quarantine + event, never routed |
+| Attack ledger (10) | `uv run pytest tests/test_redteam_fixtures.py` | batch #1 trips sentinel; batch #2 evades sentinel, caught by rules |
+| **Red-team runner (Phase 3)** | `uv run pytest tests/test_redteam_runner.py` | 10/10 rows pass offline; vision §13 scorecard |
+| **Escalation gate (Phase 3)** | `uv run pytest tests/test_escalation.py` | critical finding fires `finding.escalated` + inbox entry |
+
+The managed Model Armor API (template + `sanitize_user_prompt`) is exercised
+inside a small live window (`scripts/run_d7_live_armor.py --confirm-live`);
+offline screening rides the deterministic project-rules layer. Evidence:
+`docs/evidence/d7-redteam.txt`, `docs/evidence/d7-offline-gate.txt`,
+`docs/evidence/d7-live-armor.txt`.
+
 ## Security posture (Day-1 guardrails)
 
 - **No service-account keys are created anywhere in this project.** All tooling authenticates with
