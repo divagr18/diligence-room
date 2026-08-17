@@ -1,4 +1,4 @@
-"""Contract tests for the four deep-workstream prompts (BUILD_PLAN D1-M8).
+"""Contract tests for the eight workstream prompts (D1-M8 + D6-M5 scaffolds).
 
 Verifies: focus areas match vision §5, and the JSON finding output contract
 keys exactly match the Finding schema (memory.findings.Finding) so agent output
@@ -9,11 +9,15 @@ from __future__ import annotations
 
 import dataclasses
 
+from agents.esg import prompts as esg_prompts
 from agents.finance import prompts as finance_prompts
 from agents.hr import prompts as hr_prompts
 from agents.ip_tech import prompts as ip_tech_prompts
 from agents.legal import prompts as legal_prompts
 from agents.prompts_common import FINDING_JSON_CONTRACT
+from agents.real_estate import prompts as real_estate_prompts
+from agents.regulatory import prompts as regulatory_prompts
+from agents.tax import prompts as tax_prompts
 from memory.findings import Finding
 
 RUNTIME_OWNED_FIELDS = frozenset(
@@ -36,6 +40,10 @@ WORKSTREAM_MODULES = {
     "finance": finance_prompts,
     "hr": hr_prompts,
     "ip_tech": ip_tech_prompts,
+    "tax": tax_prompts,
+    "regulatory": regulatory_prompts,
+    "esg": esg_prompts,
+    "real_estate": real_estate_prompts,
 }
 
 MANDATORY_FOCUS_TERMS = {
@@ -43,6 +51,10 @@ MANDATORY_FOCUS_TERMS = {
     "finance": ("recurring vs non-recurring revenue", "customer concentration"),
     "hr": ("key-person dependency", "retention risk"),
     "ip_tech": ("open-source licenses", "unsupported infrastructure"),
+    "tax": ("tax exposure", "carryforward analysis"),
+    "regulatory": ("market concentration", "permit review"),
+    "esg": ("environmental liability", "disclosure review"),
+    "real_estate": ("lease review", "renewal windows"),
 }
 
 
