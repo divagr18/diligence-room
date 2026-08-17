@@ -17,11 +17,11 @@ import argparse
 import os
 import sys
 
-os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "TRUE")
-os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "diligence-room")
-# gemini-3.5-flash is served only from the global location on Vertex.
-os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
-
+# Vertex live-window env the operator must set before opening the window.
+# These are validated (validate_live_env) and deliberately NOT defaulted here:
+# defaulting them at import time made the env contract self-satisfying.
+# GOOGLE_CLOUD_LOCATION must be "global" — gemini-3.5-flash is served only
+# from the global location on Vertex.
 _REQUIRED_ENV: tuple[str, ...] = (
     "GOOGLE_GENAI_USE_VERTEXAI",
     "GOOGLE_CLOUD_PROJECT",

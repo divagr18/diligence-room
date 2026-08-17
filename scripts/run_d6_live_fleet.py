@@ -20,11 +20,11 @@ from google.cloud import firestore
 
 from agents.tools.data_room_read import DocSource
 
-os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "TRUE")
-os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "diligence-room")
-# gemini-3.5-flash is served only from the global location on Vertex.
-os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
-
+# Vertex live-window env the operator must set before opening the window.
+# These are validated (validate_live_env) and deliberately NOT defaulted here:
+# defaulting them at import time made the env contract self-satisfying.
+# GOOGLE_CLOUD_LOCATION must be "global" — gemini-3.5-flash is served only
+# from the global location on Vertex.
 _REQUIRED_ENV: tuple[str, ...] = (
     "GOOGLE_GENAI_USE_VERTEXAI",
     "GOOGLE_CLOUD_PROJECT",
@@ -89,7 +89,8 @@ async def _run_agent(
         "within your workstream, create exactly ONE finding with finding_create "
         "following the finding JSON contract. COPY one exact sentence from the "
         "returned document text verbatim (character-for-character) and use it as "
-        "the evidence verbatim_span. If there is no finding-worthy content, reply "
+        f"the evidence verbatim_span, and set each evidence entry's category to "
+        f"'{category}'. If there is no finding-worthy content, reply "
         'with {"no_finding": true}.'
     )
     message = types.Content(role="user", parts=[types.Part.from_text(text=task)])
@@ -128,9 +129,13 @@ async def _run_live(deal_id: str) -> int:
     doc_source = DatasetDocSource()
     workstreams_ok = 0
     for agent_id, (document_name, category) in _DEEP_TASKS.items():
-        created = await _run_agent(
-            client, publisher, doc_source, deal_id, agent_id, document_name, category
-        )
+        try:
+            created = await _run_agent(
+                client, publisher, doc_source, deal_id, agent_id, document_name, category
+            )
+        except Exception as exc:  # noqa: BLE001 — one agent failing must not abort the fleet
+            print(f"[fleet:{agent_id}] ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
+            created = 0
         if created >= 1:
             workstreams_ok += 1
 
