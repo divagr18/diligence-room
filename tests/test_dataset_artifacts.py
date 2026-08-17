@@ -259,6 +259,47 @@ class TestAmendment2030:
         assert regenerated.read_bytes() == AMENDMENT_PDF.read_bytes()
 
 
+SCAFFOLD_DOCS: dict[str, tuple[str, ...]] = {
+    "tax_exposure.pdf": ("tax exposure", "carryforward", "open tax years"),
+    "regulatory_correspondence.pdf": ("regulatory", "permit", "market concentration"),
+    "esg_report.pdf": ("emissions", "disclosure", "environmental liability"),
+    "lease_meridian.pdf": ("lease", "renewal", "Meridian"),
+}
+
+
+class TestScaffoldDocs:
+    def test_all_four_scaffold_docs_exist_with_markers(self) -> None:
+        for name, markers in SCAFFOLD_DOCS.items():
+            text = _normalized_pdf_text(DATA_DIR / name)
+            for marker in markers:
+                assert marker in text, f"{name} missing marker {marker!r}"
+
+    def test_lease_doc_has_coc_provision(self) -> None:
+        text = _normalized_pdf_text(DATA_DIR / "lease_meridian.pdf")
+        assert "change of control" in text.lower()
+
+    def test_scaffold_docs_regenerate_byte_identical(self, tmp_path: Path) -> None:
+        from scripts.author_dataset import (
+            write_esg_report,
+            write_lease_meridian,
+            write_regulatory_correspondence,
+            write_tax_exposure,
+        )
+
+        writers = {
+            "tax_exposure.pdf": write_tax_exposure,
+            "regulatory_correspondence.pdf": write_regulatory_correspondence,
+            "esg_report.pdf": write_esg_report,
+            "lease_meridian.pdf": write_lease_meridian,
+        }
+        for name, writer in writers.items():
+            regenerated = tmp_path / name
+            writer(regenerated)
+            assert regenerated.read_bytes() == (DATA_DIR / name).read_bytes(), (
+                f"{name} regeneration not byte-identical"
+            )
+
+
 class TestDatasetScriptCli:
     """The generator is a write tool: unknown arguments must refuse, not regenerate."""
 

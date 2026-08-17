@@ -38,6 +38,10 @@ All data is synthetic; no real company, person, or figure is represented.
 | 8 | attacks wave 2 (×4) + noise (×3) | mixed | Armor + ingestion realism | +2 injection, +1 exfil, +1 priv-esc; email export / scan / junk spreadsheet | 10 (D10-M5) | scorecard realism |
 | 9 | attack wave 3 (×6) | mixed | Armor | completes the 20-attack ledger (8/5/4/3) | 12 (D12-M3) | final scorecard |
 | 10 | `../scenarios/scanned_invoice.pdf` | image-only PDF | Ingestion/OCR | deterministic scanned fixture (no text layer) for the Day-4 mixed bundle | 4 (D4-M3) | D4-M8 mixed bundle; live Document AI OCR route |
+| 11 | `tax_exposure.pdf` | native PDF | Tax | open tax years FY24-26, $2.1M R&D credit carryforward, ~$340k sales/use tax exposure | 6 (D6-M5) | Tax scaffold parity |
+| 12 | `regulatory_correspondence.pdf` | native PDF | Regulatory | permit renewal due 90 days, market concentration below thresholds, one open inspection matter | 6 (D6-M5) | Regulatory scaffold parity |
+| 13 | `esg_report.pdf` | native PDF | ESG | FY26 scope 1+2 emissions 12,400 tCO2e, $1.5M environmental liability accrual, disclosure review | 6 (D6-M5) | ESG scaffold parity |
+| 14 | `lease_meridian.pdf` | native PDF | Real Estate | warehouse lease (Meridian fulfillment), renewal window 180 days, CoC termination clause | 6 (D6-M5) | Real-estate scaffold parity |
 
 ## Document authoring rules
 

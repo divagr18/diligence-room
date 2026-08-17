@@ -687,6 +687,161 @@ def write_amendment_2030(path: Path) -> None:
     pdf.output(str(path))
 
 
+def _pdf_with_sections(path: Path, title: str, intro: str, sections: list[tuple[str, str]]) -> None:
+    """Deterministic clause-numbered PDF writer shared by the scaffold docs."""
+    pdf = FPDF()
+    pdf.creation_date = _PINNED_DATE_UTC
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    pdf.ln(4)
+    pdf.set_font("Helvetica", "", _SECTION_FONT_SIZE)
+    pdf.multi_cell(0, _LINE_HEIGHT, intro, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.ln(2)
+    for heading, body in sections:
+        pdf.set_font("Helvetica", "B", _SECTION_FONT_SIZE)
+        pdf.multi_cell(0, _LINE_HEIGHT, heading, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font("Helvetica", "", _SECTION_FONT_SIZE)
+        pdf.multi_cell(0, _LINE_HEIGHT, body, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.ln(2)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pdf.output(str(path))
+
+
+def write_tax_exposure(path: Path) -> None:
+    """Tax scaffold seed doc (D6-M5): open tax years, carryforwards, exposure."""
+    _pdf_with_sections(
+        path,
+        "TAX EXPOSURE SUMMARY",
+        "Prepared for Project Falcon due diligence of Acme Robotics, Inc. "
+        "Status: scaffold seed document, Day 6 (D6-M5).",
+        [
+            (
+                "1. Open Tax Years",
+                "The open tax years for Acme Robotics are fiscal years 2024, 2025 "
+                "and 2026; federal and state income tax returns for those years "
+                "remain open to examination. No examinations are currently in "
+                "progress.",
+            ),
+            (
+                "2. Carryforward Analysis",
+                "Acme carries $2,100,000 of federal research credit carryforwards "
+                "expiring between 2031 and 2035, subject to limitation upon a "
+                "change of ownership.",
+            ),
+            (
+                "3. Sales and Use Tax",
+                "A voluntary disclosure review identified approximately $340,000 of "
+                "unremitted sales and use tax exposure across three states, "
+                "constituting the primary open tax exposure.",
+            ),
+            (
+                "4. Intercompany Pricing",
+                "Intercompany service fees are documented under a cost-plus "
+                "arrangement with a contemporaneous transfer pricing study.",
+            ),
+        ],
+    )
+
+
+def write_regulatory_correspondence(path: Path) -> None:
+    """Regulatory scaffold seed doc (D6-M5): permits, concentration, open matters."""
+    _pdf_with_sections(
+        path,
+        "REGULATORY CORRESPONDENCE FILE",
+        "Prepared for Project Falcon due diligence of Acme Robotics, Inc. "
+        "Status: scaffold seed document, Day 6 (D6-M5).",
+        [
+            (
+                "1. Permit Review",
+                "The Pittsburgh manufacturing facility holds all required operating "
+                "permits; the air quality permit renewal (Permit No. AQ-2024-118) "
+                "is due within ninety (90) days.",
+            ),
+            (
+                "2. Market Concentration",
+                "No regulatory filing obligation arises from the market "
+                "concentration of Acme in autonomous logistics orchestration; "
+                "market share remains below reportable thresholds.",
+            ),
+            (
+                "3. Open Matters",
+                "There is one open regulatory matter: a routine inspection "
+                "follow-up letter dated June 12, 2026, with a response deadline "
+                "of October 1, 2026.",
+            ),
+        ],
+    )
+
+
+def write_esg_report(path: Path) -> None:
+    """ESG scaffold seed doc (D6-M5): emissions, liability, disclosure review."""
+    _pdf_with_sections(
+        path,
+        "ESG DISCLOSURE REVIEW",
+        "Prepared for Project Falcon due diligence of Acme Robotics, Inc. "
+        "Status: scaffold seed document, Day 6 (D6-M5).",
+        [
+            (
+                "1. Emissions",
+                "Reported scope 1 and scope 2 emissions total 12,400 metric tons "
+                "CO2e for FY26, verified by an independent assurance statement.",
+            ),
+            (
+                "2. Environmental Liability",
+                "The battery recycling program carries an estimated $1,500,000 "
+                "environmental liability accrual, consistent with applicable "
+                "regulation.",
+            ),
+            (
+                "3. Disclosure Review",
+                "ESG disclosures included in the data room were reviewed for "
+                "completeness; no material omissions were identified regarding "
+                "emissions or environmental liability.",
+            ),
+        ],
+    )
+
+
+def write_lease_meridian(path: Path) -> None:
+    """Real-estate scaffold seed doc (D6-M5): lease with renewal + CoC clause."""
+    _pdf_with_sections(
+        path,
+        "WAREHOUSE LEASE AGREEMENT",
+        'This Warehouse Lease Agreement (this "Lease") is entered into as of '
+        "July 1, 2026, by and between Northgate Industrial Properties, LLC "
+        '("Landlord") and Acme Robotics, Inc. ("Tenant"), for the Pittsburgh '
+        "warehouse serving the Meridian Logistics, Inc. fulfillment program.",
+        [
+            (
+                "1. Term and Renewal",
+                "The initial term of this lease expires on June 30, 2029. Tenant "
+                "may renew for one additional three (3) year term by notice given "
+                "within the renewal window of one hundred eighty (180) days before "
+                "expiration.",
+            ),
+            (
+                "2. Rent",
+                "Base rent is $420,000 per annum, escalating three percent (3%) annually.",
+            ),
+            (
+                "3. Change of Control",
+                "In the event of a change of control of Tenant, Landlord may "
+                "terminate this lease upon sixty (60) days written notice.",
+            ),
+            (
+                "4. Use",
+                "The premises, including the portion dedicated to the Meridian "
+                "Logistics, Inc. fulfillment program, shall be used solely for "
+                "warehousing and logistics operations.",
+            ),
+        ],
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Regenerate the deterministic Acme Robotics dataset artifacts in place."
@@ -701,6 +856,10 @@ def main(argv: list[str] | None = None) -> int:
     scanned_path = SCENARIOS_DIR / "scanned_invoice.pdf"
     memo_path = SCENARIOS_DIR / "memo_fleet_operations.docx"
     injection_path = SCENARIOS_DIR / "injection_probe.docx"
+    tax_path = DATA_DIR / "tax_exposure.pdf"
+    regulatory_path = DATA_DIR / "regulatory_correspondence.pdf"
+    esg_path = DATA_DIR / "esg_report.pdf"
+    lease_path = DATA_DIR / "lease_meridian.pdf"
     write_contract_customer_x(contract_path)
     write_financials_fy27(financials_path)
     write_hr_roster(roster_path)
@@ -710,6 +869,10 @@ def main(argv: list[str] | None = None) -> int:
     write_scanned_invoice(scanned_path)
     write_scenario_memo(memo_path)
     write_scenario_injection(injection_path)
+    write_tax_exposure(tax_path)
+    write_regulatory_correspondence(regulatory_path)
+    write_esg_report(esg_path)
+    write_lease_meridian(lease_path)
     print(f"wrote {contract_path}")
     print(f"wrote {financials_path}")
     print(f"wrote {roster_path}")
@@ -719,6 +882,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"wrote {scanned_path}")
     print(f"wrote {memo_path}")
     print(f"wrote {injection_path}")
+    print(f"wrote {tax_path}")
+    print(f"wrote {regulatory_path}")
+    print(f"wrote {esg_path}")
+    print(f"wrote {lease_path}")
     return 0
 
 
