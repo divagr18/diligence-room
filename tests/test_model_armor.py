@@ -27,18 +27,21 @@ _CLEAN = "Section 4.2 renews the exclusivity term through June 30, 2030."
 
 
 class _StubFilterResult:
-    def __init__(self, decision: str) -> None:
-        self.decision = decision
+    def __init__(self, match_state: str) -> None:
+        self.match_state = match_state
 
 
 class _StubSanitizationResult:
-    def __init__(self, filter_results: dict[str, _StubFilterResult]) -> None:
+    def __init__(
+        self, filter_match_state: str, filter_results: dict[str, _StubFilterResult]
+    ) -> None:
+        self.filter_match_state = filter_match_state
         self.filter_results = filter_results
 
 
 class _StubResponse:
-    def __init__(self, filter_results: dict[str, _StubFilterResult]) -> None:
-        self.sanitization_result = _StubSanitizationResult(filter_results)
+    def __init__(self, sanitization_result: _StubSanitizationResult | None) -> None:
+        self.sanitization_result = sanitization_result
 
 
 class _StubClient:
@@ -51,6 +54,22 @@ class _StubClient:
         if isinstance(self._response, Exception):
             raise self._response
         return self._response
+
+
+_MATCH = "FilterMatchState.MATCH_FOUND"
+_NO_MATCH = "FilterMatchState.NO_MATCH_FOUND"
+
+
+def _blocked_response() -> _StubResponse:
+    return _StubResponse(
+        _StubSanitizationResult(_MATCH, {"pi_and_jailbreak": _StubFilterResult(_MATCH)})
+    )
+
+
+def _clean_response() -> _StubResponse:
+    return _StubResponse(
+        _StubSanitizationResult(_NO_MATCH, {"pi_and_jailbreak": _StubFilterResult(_NO_MATCH)})
+    )
 
 
 def _live_with_stub(
@@ -139,21 +158,34 @@ class TestLiveModelArmorGuards:
 
 
 class TestLiveModelArmorSanitize:
-    def test_blocked_filter_maps_to_blocked_verdict(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        response = _StubResponse(
-            {"pi_and_jailbreak": _StubFilterResult("BLOCKED")},
-        )
-        armor, stub = _live_with_stub(monkeypatch, response)
+    def test_matched_filter_maps_to_blocked_verdict(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        armor, stub = _live_with_stub(monkeypatch, _blocked_response())
         verdict = armor.sanitize(_POISONED)
         assert verdict.blocked is True
-        assert any(code.startswith("armor:") for code in verdict.reason_codes)
+        assert verdict.reason_codes == ("armor:pi_and_jailbreak",)
         assert verdict.layer == "model_armor_managed"
         assert len(stub.requests) == 1
 
-    def test_allowed_filter_maps_to_clean_verdict(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        response = _StubResponse({"pi_and_jailbreak": _StubFilterResult("ALLOWED")})
-        armor, _ = _live_with_stub(monkeypatch, response)
+    def test_no_match_filter_maps_to_clean_verdict(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        armor, _ = _live_with_stub(monkeypatch, _clean_response())
         assert armor.sanitize(_CLEAN).blocked is False
+
+    def test_missing_sanitization_result_fails_closed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        armor, _ = _live_with_stub(monkeypatch, _StubResponse(None))
+        verdict = armor.sanitize(_CLEAN)
+        assert verdict.blocked is True
+        assert verdict.reason_codes == ("armor_unparseable",)
+
+    def test_unrecognized_verdict_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        response = _StubResponse(
+            _StubSanitizationResult("FilterMatchState.FILTER_MATCH_STATE_UNSPECIFIED", {})
+        )
+        armor, _ = _live_with_stub(monkeypatch, response)
+        verdict = armor.sanitize(_CLEAN)
+        assert verdict.blocked is True
+        assert verdict.reason_codes == ("armor_unparseable",)
 
     def test_api_error_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
         armor, _ = _live_with_stub(monkeypatch, RuntimeError("boom"))
@@ -169,10 +201,7 @@ class TestLiveModelArmorSanitize:
 
         class _SequenceClient:
             def __init__(self) -> None:
-                self._responses = (
-                    _StubResponse({"pi_and_jailbreak": _StubFilterResult("BLOCKED")}),
-                    _StubResponse({"pi_and_jailbreak": _StubFilterResult("ALLOWED")}),
-                )
+                self._responses = (_blocked_response(), _clean_response())
                 self._index = 0
 
             def sanitize_user_prompt(self, request: object) -> _StubResponse:
@@ -192,7 +221,7 @@ class TestLiveModelArmorSanitize:
 
 class TestLiveModelArmorTemplate:
     def test_template_name_follows_managed_geometry(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        armor, _ = _live_with_stub(monkeypatch, _StubResponse({}))
+        armor, _ = _live_with_stub(monkeypatch, _StubResponse(None))
         assert armor.template_name == (
             "projects/diligence-room/locations/us-central1/templates/diligence-armor"
         )

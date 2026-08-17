@@ -153,20 +153,55 @@ class LiveModelArmor:
         )
 
     @staticmethod
+    def _match_state_name(holder: Any) -> str:
+        state = getattr(holder, "match_state", None)
+        if state is None:
+            return ""
+        # Proto enums stringify to their int value; .name carries the symbolic
+        # form (e.g. MATCH_FOUND). Plain objects fall back to str().
+        name = getattr(state, "name", None)
+        candidate = name.upper() if isinstance(name, str) else str(state).upper()
+        return candidate if "MATCH_FOUND" in candidate else ""
+
+    @staticmethod
+    def _filter_match_state(filter_result: Any) -> str:
+        # FilterResult wraps the per-filter outcome in a oneof branch; walk the
+        # proto-plus field map to reach the nested message carrying match_state.
+        # Plain (non-proto) objects expose match_state directly.
+        meta = getattr(type(filter_result), "meta", None)
+        fields = getattr(meta, "fields", None) if meta is not None else None
+        if fields:
+            for field_name in fields:
+                state = LiveModelArmor._match_state_name(getattr(filter_result, field_name, None))
+                if state:
+                    return state
+            return ""
+        return LiveModelArmor._match_state_name(filter_result)
+
+    @staticmethod
     def _map_response(response: Any) -> tuple[bool, tuple[str, ...]]:
         result = getattr(response, "sanitization_result", None)
         if result is None:
             # Fail closed: an unparseable verdict cannot clear the document.
             return (True, ("armor_unparseable",))
-        blocked = bool(getattr(result, "blocked", False))
-        codes: list[str] = []
+        matched: list[str] = []
+        clean_signal = False
         filter_results = getattr(result, "filter_results", None) or {}
         for key, filter_result in filter_results.items():
-            decision = str(getattr(filter_result, "decision", "")).upper()
-            if "BLOCKED" in decision:
-                blocked = True
-                codes.append(f"armor:{str(key).lower()}")
-        return (blocked, tuple(codes))
+            state = LiveModelArmor._filter_match_state(filter_result)
+            if state.endswith("NO_MATCH_FOUND"):
+                clean_signal = True
+            elif state.endswith("MATCH_FOUND"):
+                matched.append(str(key).lower())
+        if matched:
+            return (True, tuple(f"armor:{name}" for name in matched))
+        top_state = str(getattr(result, "filter_match_state", "")).upper()
+        if top_state.endswith("MATCH_FOUND") and not top_state.endswith("NO_MATCH_FOUND"):
+            return (True, ("armor:match_found",))
+        if top_state.endswith("NO_MATCH_FOUND") or clean_signal:
+            return (False, ())
+        # Fail closed: no recognizable verdict signal.
+        return (True, ("armor_unparseable",))
 
     def _record(self, text: str, blocked: bool, latency_ms: float) -> None:
         self.metrics.sanitize_calls += 1
