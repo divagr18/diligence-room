@@ -17,6 +17,7 @@ from typing import Any, Protocol
 from google.cloud import firestore
 
 from agents.tools.data_room_read import DocSource
+from coordination.escalation import escalate_if_critical
 from identity.authz import Action, Resource, can, denial_envelope
 from identity.principals import Principal
 from ingestion.parsing import LocalParser
@@ -249,6 +250,8 @@ def make_finding_create(
                 "created_at": stamp.isoformat(),
             }
         )
+        # Vision §10: critical findings automatically notify the deal lead.
+        escalate_if_critical(client, publisher, finding, now=stamp)
         return {"decision": "created", "finding_id": finding_id}
 
     return finding_create

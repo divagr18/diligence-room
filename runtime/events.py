@@ -21,6 +21,7 @@ class EventType(StrEnum):
     DOCUMENT_PARSED = "document.parsed"
     DOCUMENT_ROUTED = "document.routed"
     FINDING_CREATED = "finding.created"
+    FINDING_ESCALATED = "finding.escalated"
     GATEWAY_DECISION = "gateway.decision"
     SECURITY_EVENT = "security.event"
     DEAD_LETTERED = "runner.dead_lettered"

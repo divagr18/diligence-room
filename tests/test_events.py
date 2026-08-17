@@ -32,6 +32,7 @@ class TestEventType:
             "document.parsed",
             "document.routed",
             "finding.created",
+            "finding.escalated",
             "gateway.decision",
             "security.event",
             "runner.dead_lettered",
