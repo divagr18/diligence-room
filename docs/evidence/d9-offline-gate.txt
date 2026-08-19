@@ -1,0 +1,103 @@
+DAY 9 OFFLINE GATE (BUILD_PLAN Day 9: failure tolerance, CUTLINE-1)
+Executed (UTC): 2026-08-20
+Scope: loop guard (D9-M1) + evidence gate (D9-M2) + crash-resume (D9-M3) +
+negotiation core (D9-M4) + CUTLINE-1 ruling (D9-M5), all offline against the
+Firestore emulator. Executed ahead of the plan's Sat 08-22 slot, following
+the pulled-forward Day-8 execution (docs/evidence/d8-offline-gate.txt).
+
+====================================================================
+1. QUALITY BATTERY (full suite, emulator-backed)
+====================================================================
+$ uv run pytest tests/ -q
+886 passed, 2 warnings in 21.13s
+
+$ uv run mypy .
+Success: no issues found in 170 source files
+
+$ uv run ruff check .
+All checks passed!
+$ uv run ruff format --check .
+182 files already formatted
+
+====================================================================
+2. GATE ITEM A - loop guard terminates runaway runs (D9-M1)
+====================================================================
+$ uv run pytest tests/test_guards.py -q
+10 passed in 0.07s
+
+Agent runs are bounded per vision S19.2: max iterations, max tool-call
+budget, max wall-clock per step, and a token budget. A run that exceeds
+bounds is terminated (the guard raises inside the loop), its partial state
+is checkpointed, and run.bounds_exceeded is logged for the Security view.
+Wall-clock proven with a deterministic injected clock - a runaway loop can
+never spin forever.
+
+====================================================================
+3. GATE ITEM B - evidence gate rejects hallucinations (D9-M2)
+====================================================================
+$ uv run pytest tests/test_evidence_gate.py tests/test_tool_finding_create.py tests/test_escalation.py -q
+27 passed in 5.88s
+
+Vision S19.3: fabricated or unresolvable spans are rejected at write time
+with reason evidence_unresolvable and logged via an evidence.rejected event;
+confidence below the operator-locked 0.75 threshold caps a finding at
+candidate; candidate-capped findings never auto-escalate even at critical
+severity. The event-vocabulary pin covers the new Day-9 types.
+
+====================================================================
+4. GATE ITEM C - crash-resume without duplicates or lost work (D9-M3)
+====================================================================
+$ uv run pytest tests/test_crash_resume.py -q
+4 passed in 0.28s
+
+Vision S19.4: runs checkpoint state transitions to the append-only event log
+(runner.checkpoint). A run killed mid-flight resumes from the last
+checkpoint: completed steps are never re-executed, findings are never
+duplicated, no work is lost; distinct run ids never share checkpoints and
+the event log itself is the durable, auditable checkpoint store.
+
+====================================================================
+5. GATE ITEM D - negotiation behind a human approval gate (D9-M4)
+====================================================================
+$ uv run pytest tests/test_negotiation.py -q
+20 passed in 4.53s
+
+Vision S11: draft generation is confidence-gated (refused below the 0.75
+candidate threshold) and state-machine-bound: draft -> pending_approval ->
+approved -> send_logged along no other edge. Approving a draft that skipped
+submission is refused; a send is refused from pending_approval and logged
+only from approved; send_logged is terminal. Every transition emits an
+auditable negotiation.transition event; stable draft ids make regeneration
+idempotent. This is the CUTLINE-1 minimal configuration.
+
+====================================================================
+6. CUTLINE-1 RULING (D9-M5)
+====================================================================
+All four gates GREEN inside the hour-4 bound => the full negotiation spec
+(redline templates, seller requests, counterparty questions) proceeds as the
+Day-12 completion target (D12-M6). Ruling: docs/decisions/cutline1.md.
+
+====================================================================
+7. HONEST STAND-INS (carried forward, disclosed)
+====================================================================
+- Live windows NOT executed in the offline loop (zero live spend):
+  scripts/run_d8_live_coordinator.py remains built + guarded; same posture
+  as the d6/d7 live windows and FakeSentinel (docs/decisions/gemma-serving.md).
+- Negotiation "send" is a logged event only - the external channel itself is
+  deployment work; nothing leaves the room without human approval at any scope.
+- The 0.75 candidate threshold is the operator-locked policy value (vision
+  S19.3 leaves the number to the deal).
+
+====================================================================
+8. DAY 9 COMMITS (this gate)
+====================================================================
+981580e feat(runtime): loop guard (D9-M1)
+0b503b8 feat(findings): evidence gate hardening (D9-M2)
+f1d0a34 feat(runtime): crash-resume (D9-M3)
+4fb8599 feat(negotiation): drafts + human approval gate, CUTLINE-1 minimal (D9-M4)
+
+VERDICT: PASS - Day-9 failure tolerance proven offline with real-surface
+artifacts: runaways terminate with checkpoints, fabricated evidence is
+rejected and logged, kill-resume never duplicates or loses work, negotiation
+sends only through the human approval gate. CUTLINE-1 green: full
+negotiation spec is the Day-12 target. Day 10 (observability) unblocked.
