@@ -22,8 +22,8 @@ class TestPartitionKeyFormat:
         assert partition_key("deal-falcon", "finance") == f"{ORG}/deal-falcon/finance"
 
     def test_custom_org_override(self) -> None:
-        assert partition_key("deal-falcon", Workstream.LEGAL, org="acme-corp") == (
-            "acme-corp/deal-falcon/legal"
+        assert partition_key("deal-falcon", Workstream.LEGAL, org="vantage-corp") == (
+            "vantage-corp/deal-falcon/legal"
         )
 
     def test_default_org_value(self) -> None:

@@ -27,7 +27,7 @@ from armor.rules import (
 )
 from ingestion.parsing import LocalParser
 
-_DATA = Path(__file__).resolve().parent.parent / "data" / "acme_robotics"
+_DATA = Path(__file__).resolve().parent.parent / "data" / "vantage_robotics"
 DEAL = "deal-falcon"
 _PARSEABLE_SUFFIXES = frozenset({".pdf", ".xlsx", ".docx", ".eml"})
 

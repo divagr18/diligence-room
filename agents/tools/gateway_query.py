@@ -3,7 +3,7 @@
 Agents never talk directly: ``ask_agent`` submits a question through the
 gateway, which decides policy, calls the target workstream's responder, and
 filters the response down to its allowed shape. ``OfflineFinanceResponder``
-computes the real Customer X revenue share from the dataset workbook — no
+computes the real Meridian Logistics revenue share from the dataset workbook — no
 hardcoded answers in the demo path.
 """
 
@@ -35,7 +35,7 @@ from registry.models import Workstream
 from runtime.events import EventType, new_event
 
 _DEFAULT_WORKBOOK = (
-    Path(__file__).resolve().parents[2] / "data" / "acme_robotics" / "financials_fy27.xlsx"
+    Path(__file__).resolve().parents[2] / "data" / "vantage_robotics" / "financials_fy27.xlsx"
 )
 _FINANCE_SHEET = "FY27 Projected Revenue"
 _CUSTOMER_X_ALIAS = "Meridian"
@@ -81,7 +81,7 @@ class AskAgentTool(Protocol):
 class OfflineFinanceResponder:
     """Deterministic finance responder backed by the dataset workbook.
 
-    Computes Customer X's share of projected FY27 revenue (Meridian / TOTAL)
+    Computes Meridian Logistics's share of projected FY27 revenue (Meridian / TOTAL)
     on every call — the 18.3% headline is always derived, never stored.
     """
 
@@ -110,7 +110,7 @@ class OfflineFinanceResponder:
             value=share_percent,
             unit="percent",
             source_document=self._workbook_path.name,
-            basis=f"{_FINANCE_SHEET} sheet (Customer X / TOTAL)",
+            basis=f"{_FINANCE_SHEET} sheet (Meridian Logistics / TOTAL)",
         )
 
     def answer(self, deal_id: str, question: str, purpose: str) -> str:

@@ -66,7 +66,7 @@ class TestDeal:
         deal = Deal(
             deal_id="deal-falcon",
             name="Project Falcon",
-            target="Acme Robotics",
+            target="Vantage Robotics",
             deal_type="Acquisition",
             regions=("US", "EU"),
             expected_window_days=21,
@@ -83,7 +83,7 @@ class TestFinding:
             "finding_id": "LEGAL-001",
             "deal_id": "deal-falcon",
             "workstream": Workstream.LEGAL,
-            "title": "Customer X change-of-control termination right",
+            "title": "Meridian Logistics change-of-control termination right",
             "summary": "Top customer agreement contains a CoC termination right.",
             "severity": FindingSeverity.HIGH,
             "confidence": 0.94,
@@ -91,10 +91,10 @@ class TestFinding:
             "evidence": (
                 Evidence(
                     verbatim_span="may terminate upon a change of control",
-                    document_id="contract_customer_x.pdf",
+                    document_id="contract_meridian_logistics.pdf",
                 ),
             ),
-            "source_documents": ("contract_customer_x.pdf",),
+            "source_documents": ("contract_meridian_logistics.pdf",),
             "owner": "legal-agent@deal-falcon",
             "created_at": NOW,
             "updated_at": NOW,

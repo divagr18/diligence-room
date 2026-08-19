@@ -42,7 +42,7 @@ COC_SPAN = (
     "within ninety (90) days following a Change of Control"
 )
 US_BUCKET = "diligence-room-dataroom-deal-falcon-us"
-DOCUMENT_ID = "contract_customer_x.pdf"
+DOCUMENT_ID = "contract_meridian_logistics.pdf"
 FINDING_ID = "LEGAL-001"
 
 GCS_NOTIFICATION: dict[str, object] = {

@@ -12,7 +12,7 @@ from PIL import Image
 from ingestion.formats import detect_format
 from ingestion.models import FormatKind
 
-_DATA = Path(__file__).resolve().parent.parent / "data" / "acme_robotics"
+_DATA = Path(__file__).resolve().parent.parent / "data" / "vantage_robotics"
 _PINNED = datetime(2026, 7, 1, 9, 0, 0, tzinfo=UTC)
 
 
@@ -31,8 +31,8 @@ def _image_only_pdf_bytes() -> bytes:
 
 class TestSniff:
     def test_native_pdf_detected(self) -> None:
-        blob = (_DATA / "contract_customer_x.pdf").read_bytes()
-        info = detect_format(blob, "contract_customer_x.pdf")
+        blob = (_DATA / "contract_meridian_logistics.pdf").read_bytes()
+        info = detect_format(blob, "contract_meridian_logistics.pdf")
         assert info.kind is FormatKind.NATIVE_PDF
         assert info.needs_ocr is False
         assert info.mime == "application/pdf"
@@ -87,7 +87,7 @@ class TestSniff:
         assert info.confidence == 0.0
 
     def test_extension_lies_pdf_bytes_named_txt(self) -> None:
-        blob = (_DATA / "contract_customer_x.pdf").read_bytes()
+        blob = (_DATA / "contract_meridian_logistics.pdf").read_bytes()
         info = detect_format(blob, "actually_a_contract.txt")
         assert info.kind is FormatKind.NATIVE_PDF
 

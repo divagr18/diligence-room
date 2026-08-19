@@ -40,9 +40,9 @@ class TestDataRoomRead:
         reader = make_data_room_read(
             principal_for(Workstream.LEGAL, DEAL), publisher, DatasetDocSource()
         )
-        result = reader(category="contracts", name="contract_customer_x.pdf")
+        result = reader(category="contracts", name="contract_meridian_logistics.pdf")
         assert result["decision"] == "allow"
-        assert result["document_id"] == "contract_customer_x.pdf"
+        assert result["document_id"] == "contract_meridian_logistics.pdf"
         text = str(result["text"])
         assert "Change of Control" in text
         chunks = result["chunks"]

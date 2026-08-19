@@ -17,11 +17,11 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parent.parent
 
 _BUNDLE: tuple[tuple[str, str], ...] = (
-    ("contract_customer_x.pdf", "data/acme_robotics/contract_customer_x.pdf"),
-    ("financials_fy27.xlsx", "data/acme_robotics/financials_fy27.xlsx"),
-    ("hr_roster_acme.xlsx", "data/acme_robotics/hr_roster_acme.xlsx"),
-    ("tech_inventory.pdf", "data/acme_robotics/tech_inventory.pdf"),
-    ("vendor_agreement_2027.pdf", "data/acme_robotics/vendor_agreement_2027.pdf"),
+    ("contract_meridian_logistics.pdf", "data/vantage_robotics/contract_meridian_logistics.pdf"),
+    ("financials_fy27.xlsx", "data/vantage_robotics/financials_fy27.xlsx"),
+    ("hr_roster_vantage.xlsx", "data/vantage_robotics/hr_roster_vantage.xlsx"),
+    ("tech_inventory.pdf", "data/vantage_robotics/tech_inventory.pdf"),
+    ("vendor_agreement_2027.pdf", "data/vantage_robotics/vendor_agreement_2027.pdf"),
     ("memo_fleet_operations.docx", "data/scenarios/memo_fleet_operations.docx"),
     ("scanned_invoice.pdf", "data/scenarios/scanned_invoice.pdf"),
     ("injection_probe.docx", "data/scenarios/injection_probe.docx"),

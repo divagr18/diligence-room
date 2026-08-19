@@ -21,7 +21,7 @@ from ingestion.sentinel import FakeSentinel
 from runtime.consumer import DealEventConsumer, EchoInvoker, FeedSource
 from runtime.events import EventEnvelope, EventType, InMemoryPublisher
 
-_DATA = Path(__file__).resolve().parent.parent / "data" / "acme_robotics"
+_DATA = Path(__file__).resolve().parent.parent / "data" / "vantage_robotics"
 _FALCON_US_BUCKET = "diligence-room-dataroom-deal-falcon-us"
 
 
@@ -78,8 +78,8 @@ def _pii_heavy_xlsx_bytes() -> bytes:
     sheet = workbook.worksheets[0]
     sheet.title = "Employee Contacts"
     sheet.append(["Employee", "Email", "SSN"])
-    sheet.append(["Dana Whitfield", "dana.whitfield@acme.example", "111-22-3333"])
-    sheet.append(["Marcus Bell", "marcus.bell@acme.example", "222-33-4444"])
+    sheet.append(["Dana Whitfield", "dana.whitfield@vantage.example", "111-22-3333"])
+    sheet.append(["Marcus Bell", "marcus.bell@vantage.example", "222-33-4444"])
     buffer = BytesIO()
     workbook.save(buffer)
     return buffer.getvalue()
@@ -88,8 +88,8 @@ def _pii_heavy_xlsx_bytes() -> bytes:
 class TestPipelineRouting:
     def test_routes_contract_to_legal(self, firestore_client: firestore.Client) -> None:
         context, publisher = _context(firestore_client)
-        blob = (_DATA / "contract_customer_x.pdf").read_bytes()
-        result = ingest_blob(context, "deal-falcon", "contract_customer_x.pdf", blob)
+        blob = (_DATA / "contract_meridian_logistics.pdf").read_bytes()
+        result = ingest_blob(context, "deal-falcon", "contract_meridian_logistics.pdf", blob)
         assert result.status == "routed"
         assert result.route is not None
         assert result.route.workstream == "legal"
@@ -100,11 +100,11 @@ class TestPipelineRouting:
 
     def test_routed_event_payload_fields(self, firestore_client: firestore.Client) -> None:
         context, publisher = _context(firestore_client)
-        blob = (_DATA / "contract_customer_x.pdf").read_bytes()
-        ingest_blob(context, "deal-falcon", "contract_customer_x.pdf", blob)
+        blob = (_DATA / "contract_meridian_logistics.pdf").read_bytes()
+        ingest_blob(context, "deal-falcon", "contract_meridian_logistics.pdf", blob)
         routed = _published(publisher)[1]
         payload = routed.payload
-        assert payload["document_id"] == "contract_customer_x.pdf"
+        assert payload["document_id"] == "contract_meridian_logistics.pdf"
         assert payload["workstream"] == "legal"
         assert payload["doc_type"] == "contract"
         assert payload["dlp_required"] is False
@@ -129,11 +129,11 @@ class TestPipelineRouting:
         context, publisher = _context(firestore_client)
         payload = {
             "bucket": _FALCON_US_BUCKET,
-            "name": "contract_customer_x.pdf",
+            "name": "contract_meridian_logistics.pdf",
             "eventType": "OBJECT_FINALIZE",
             "contentType": "application/pdf",
         }
-        blob = (_DATA / "contract_customer_x.pdf").read_bytes()
+        blob = (_DATA / "contract_meridian_logistics.pdf").read_bytes()
         result = ingest_notification(context, payload, blob)
         assert result.deal_id == "deal-falcon"
         assert result.status == "routed"
@@ -178,17 +178,17 @@ class TestPiiHandling:
 
     def test_light_pii_does_not_flag(self, firestore_client: firestore.Client) -> None:
         context, publisher = _context(firestore_client)
-        blob = (_DATA / "contract_customer_x.pdf").read_bytes()
-        result = ingest_blob(context, "deal-falcon", "contract_customer_x.pdf", blob)
+        blob = (_DATA / "contract_meridian_logistics.pdf").read_bytes()
+        result = ingest_blob(context, "deal-falcon", "contract_meridian_logistics.pdf", blob)
         assert result.dlp_required is False
 
 
 class TestLineageIntegration:
     def test_duplicate_suppressed_single_route(self, firestore_client: firestore.Client) -> None:
         context, publisher = _context(firestore_client)
-        blob = (_DATA / "contract_customer_x.pdf").read_bytes()
-        first = ingest_blob(context, "deal-falcon", "contract_customer_x.pdf", blob)
-        second = ingest_blob(context, "deal-falcon", "contract_customer_x.pdf", blob)
+        blob = (_DATA / "contract_meridian_logistics.pdf").read_bytes()
+        first = ingest_blob(context, "deal-falcon", "contract_meridian_logistics.pdf", blob)
+        second = ingest_blob(context, "deal-falcon", "contract_meridian_logistics.pdf", blob)
         assert first.status == "routed"
         assert second.status == "suppressed"
         assert len(_published(publisher)) == 2, "suppressed pass emits nothing"
@@ -219,7 +219,7 @@ class TestConsumerHook:
 
         payload = {
             "bucket": _FALCON_US_BUCKET,
-            "name": "contract_customer_x.pdf",
+            "name": "contract_meridian_logistics.pdf",
             "eventType": "OBJECT_FINALIZE",
         }
         hook = RecordingHook()
@@ -320,7 +320,7 @@ class TestArmorScreen:
         self, firestore_client: firestore.Client
     ) -> None:
         context, publisher = _context(firestore_client)
-        blob = (_DATA / "contract_customer_x.pdf").read_bytes()
-        result = ingest_blob(context, "deal-falcon", "contract_customer_x.pdf", blob)
+        blob = (_DATA / "contract_meridian_logistics.pdf").read_bytes()
+        result = ingest_blob(context, "deal-falcon", "contract_meridian_logistics.pdf", blob)
         assert result.status == "routed"
         assert QuarantineStore(firestore_client).list_quarantined("deal-falcon") == []

@@ -65,7 +65,7 @@ uv run python infra/deploy/cloud_run.py --confirm-live
 
 # 7. Upload a test document to the US data-room bucket.
 gcloud storage cp \
-    data/acme_robotics/contract_customer_x.pdf \
+    data/vantage_robotics/contract_meridian_logistics.pdf \
     gs://diligence-room-dataroom-deal-falcon-us/
 
 # 8. Verify the deployed services respond.
@@ -150,7 +150,7 @@ with zero live GCP calls:
 1. registry seeded with all 8 workstream agents (`registry/seed.py`);
 2. Project Falcon deal workspace provisioned (`runtime/deal_workspace.py`);
 3. a simulated `OBJECT_FINALIZE` notification for
-   `contract_customer_x.pdf` in the falcon US bucket is parsed into a
+   `contract_meridian_logistics.pdf` in the falcon US bucket is parsed into a
    `document.ingested` envelope (`runtime/bucket_notify.py`);
 4. the envelope crosses the event bus (`runtime/events.py` InMemoryPublisher)
    and is drained by a consumer into the append-only audit log

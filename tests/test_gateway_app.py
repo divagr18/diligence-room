@@ -88,7 +88,7 @@ class TestDecideEndpoint:
                 "deal_id": "deal-falcon",
                 "sender_identity": "legal-agent@deal-falcon",
                 "target_workstream": "finance",
-                "question": "What share of projected revenue comes from Customer X?",
+                "question": "What share of projected revenue comes from Meridian Logistics?",
                 "purpose": "revenue_concentration",
             },
         )

@@ -23,7 +23,7 @@ class TestFalconDealConstants:
         deal = build_falcon_deal(NOW)
         assert deal.deal_id == FALCON_DEAL_ID == "deal-falcon"
         assert deal.name == "Project Falcon"
-        assert deal.target == "Acme Robotics"
+        assert deal.target == "Vantage Robotics"
         assert deal.deal_type == "Acquisition"
         assert deal.regions == ("US", "EU")
         assert deal.expected_window_days == 90
@@ -42,7 +42,7 @@ class TestProvisionDeal:
         assert data is not None
         assert data["deal_id"] == "deal-falcon"
         assert data["name"] == "Project Falcon"
-        assert data["target"] == "Acme Robotics"
+        assert data["target"] == "Vantage Robotics"
         assert data["deal_type"] == "Acquisition"
         assert data["regions"] == ["US", "EU"]
         assert data["expected_window_days"] == 90

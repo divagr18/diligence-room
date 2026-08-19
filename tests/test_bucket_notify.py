@@ -18,7 +18,7 @@ class TestParseNotification:
         envelope = parse_notification(
             {
                 "bucket": "diligence-room-dataroom-deal-falcon-us",
-                "name": "contract_customer_x.pdf",
+                "name": "contract_meridian_logistics.pdf",
                 "eventType": "OBJECT_FINALIZE",
                 "contentType": "application/pdf",
             }
@@ -26,7 +26,7 @@ class TestParseNotification:
         assert envelope.type is EventType.DOCUMENT_INGESTED
         assert envelope.deal_id == "deal-falcon"
         assert envelope.actor == "bucket-notification"
-        assert envelope.payload["document_id"] == "contract_customer_x.pdf"
+        assert envelope.payload["document_id"] == "contract_meridian_logistics.pdf"
         assert envelope.payload["bucket"] == "diligence-room-dataroom-deal-falcon-us"
         assert envelope.payload["content_type"] == "application/pdf"
 

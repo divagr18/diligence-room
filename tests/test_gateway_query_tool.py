@@ -58,7 +58,7 @@ class TestLocalGatewayClient:
             sender=sender,
             deal_id=DEAL,
             target=Workstream.FINANCE,
-            question="What share of projected FY27 revenue comes from Customer X?",
+            question="What share of projected FY27 revenue comes from Meridian Logistics?",
             purpose="change_of_control_exposure",
         )
         assert response.verdict is Verdict.ALLOW
@@ -75,7 +75,7 @@ class TestLocalGatewayClient:
             sender=sender,
             deal_id=DEAL,
             target=Workstream.FINANCE,
-            question="How concentrated is Customer X?",
+            question="How concentrated is Meridian Logistics?",
             purpose="revenue_concentration",
         )
         assert response.verdict is Verdict.ALLOW
@@ -133,7 +133,7 @@ class TestLocalGatewayClient:
             sender=sender,
             deal_id=DEAL,
             target=Workstream.FINANCE,
-            question="How concentrated is Customer X?",
+            question="How concentrated is Meridian Logistics?",
             purpose="revenue_concentration",
         )
         assert response.verdict is Verdict.DENY
@@ -174,7 +174,7 @@ class TestToolFactory:
         assert tool.__name__ == "ask_agent"
         result = tool(
             target_ws="finance",
-            question="What share of projected FY27 revenue comes from Customer X?",
+            question="What share of projected FY27 revenue comes from Meridian Logistics?",
             purpose="change_of_control_exposure",
         )
         assert result["decision"] == "allow"

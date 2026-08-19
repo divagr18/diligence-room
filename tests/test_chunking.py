@@ -8,7 +8,7 @@ from pathlib import Path
 from ingestion.chunking import chunk
 from ingestion.parsing import LocalParser
 
-_DATA = Path(__file__).resolve().parent.parent / "data" / "acme_robotics"
+_DATA = Path(__file__).resolve().parent.parent / "data" / "vantage_robotics"
 
 _CLAUSE_11_3 = (
     "11.3 Termination Right. Either Party may terminate this Agreement by written "
@@ -20,8 +20,8 @@ _CLAUSE_11_3 = (
 class TestChunking:
     def test_contract_clause_chunks_split_on_numbered_boundaries(self) -> None:
         doc = LocalParser().parse(
-            (_DATA / "contract_customer_x.pdf").read_bytes(),
-            "contract_customer_x.pdf",
+            (_DATA / "contract_meridian_logistics.pdf").read_bytes(),
+            "contract_meridian_logistics.pdf",
             "deal-falcon",
         )
         chunks = chunk(doc)
@@ -32,8 +32,8 @@ class TestChunking:
 
     def test_locator_resolves_verbatim_coc_span(self) -> None:
         doc = LocalParser().parse(
-            (_DATA / "contract_customer_x.pdf").read_bytes(),
-            "contract_customer_x.pdf",
+            (_DATA / "contract_meridian_logistics.pdf").read_bytes(),
+            "contract_meridian_logistics.pdf",
             "deal-falcon",
         )
         assert doc.text is not None

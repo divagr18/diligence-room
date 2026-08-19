@@ -63,7 +63,7 @@ def _runner_state(client: firestore.Client, envelope: EventEnvelope) -> dict[str
 class TestDispatch:
     def test_success_first_try(self, firestore_client: firestore.Client) -> None:
         handler = RecordingHandler()
-        envelope = _envelope("contract_customer_x.pdf")
+        envelope = _envelope("contract_meridian_logistics.pdf")
         result = dispatch_event(firestore_client, envelope, handler, now=T0, sleep=FakeSleep())
         assert result.status is DispatchStatus.PROCESSED
         assert result.attempts == 1
@@ -126,7 +126,7 @@ class TestDispatch:
 class TestIdempotency:
     def test_replay_skips_handler(self, firestore_client: firestore.Client) -> None:
         handler = RecordingHandler()
-        envelope = _envelope("contract_customer_x.pdf")
+        envelope = _envelope("contract_meridian_logistics.pdf")
         first = dispatch_event(firestore_client, envelope, handler, now=T0, sleep=FakeSleep())
         replay = dispatch_event(firestore_client, envelope, handler, now=T0, sleep=FakeSleep())
         assert first.status is DispatchStatus.PROCESSED
@@ -138,8 +138,8 @@ class TestIdempotency:
     ) -> None:
         """Redeliveries mint a new event_id; only the dedupe key is stable."""
         handler = RecordingHandler()
-        first_envelope = _envelope("contract_customer_x.pdf")
-        redelivered = _envelope("contract_customer_x.pdf")
+        first_envelope = _envelope("contract_meridian_logistics.pdf")
+        redelivered = _envelope("contract_meridian_logistics.pdf")
         assert first_envelope.event_id != redelivered.event_id
         assert first_envelope.dedupe_key == redelivered.dedupe_key
         dispatch_event(firestore_client, first_envelope, handler, now=T0, sleep=FakeSleep())

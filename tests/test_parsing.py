@@ -13,7 +13,7 @@ from PIL import Image
 from ingestion.models import FormatKind
 from ingestion.parsing import DocumentAIParser, LocalParser, Parser, UnsupportedFormatError
 
-_DATA = Path(__file__).resolve().parent.parent / "data" / "acme_robotics"
+_DATA = Path(__file__).resolve().parent.parent / "data" / "vantage_robotics"
 _PINNED = datetime(2026, 7, 1, 9, 0, 0, tzinfo=UTC)
 
 
@@ -31,15 +31,15 @@ def _image_only_pdf_bytes() -> bytes:
 
 class TestLocalParser:
     def test_contract_pdf_text_and_metadata_fields(self) -> None:
-        blob = (_DATA / "contract_customer_x.pdf").read_bytes()
-        doc = LocalParser().parse(blob, "contract_customer_x.pdf", "deal-falcon")
+        blob = (_DATA / "contract_meridian_logistics.pdf").read_bytes()
+        doc = LocalParser().parse(blob, "contract_meridian_logistics.pdf", "deal-falcon")
         assert doc.text is not None
         assert "Change of Control" in doc.text
-        assert doc.document_id == "contract_customer_x.pdf"
+        assert doc.document_id == "contract_meridian_logistics.pdf"
         assert doc.deal_id == "deal-falcon"
         assert doc.format.kind is FormatKind.NATIVE_PDF
         meta = doc.metadata
-        assert meta["document_id"] == "contract_customer_x.pdf"
+        assert meta["document_id"] == "contract_meridian_logistics.pdf"
         assert meta["deal_id"] == "deal-falcon"
         assert meta["mime"] == "application/pdf"
         assert meta["needs_ocr"] is False
@@ -103,9 +103,9 @@ class TestLocalParser:
     ) -> None:
         monkeypatch.delenv("DILIGENCE_DOCAI_ENABLED", raising=False)
         parser = DocumentAIParser(project_id="diligence-room", processor_id="abc123")
-        blob = (_DATA / "contract_customer_x.pdf").read_bytes()
+        blob = (_DATA / "contract_meridian_logistics.pdf").read_bytes()
         with pytest.raises(RuntimeError, match="DILIGENCE_DOCAI_ENABLED"):
-            parser.parse(blob, "contract_customer_x.pdf", "deal-falcon")
+            parser.parse(blob, "contract_meridian_logistics.pdf", "deal-falcon")
 
     def test_documentai_parser_satisfies_parser_protocol(self) -> None:
         parser = DocumentAIParser(project_id="diligence-room", processor_id="abc123")

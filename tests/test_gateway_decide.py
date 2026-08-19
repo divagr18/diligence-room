@@ -48,7 +48,7 @@ def _request(
         deal_id=deal,
         sender=sender,
         target_workstream=target,
-        question="What share of projected revenue comes from Customer X?",
+        question="What share of projected revenue comes from Meridian Logistics?",
         purpose=purpose,
         ts=T0,
     )

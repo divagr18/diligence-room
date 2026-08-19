@@ -30,9 +30,9 @@ from ingestion.parsing import LocalParser
 from registry.models import Workstream
 
 DEEP_WORKSTREAM_DOCUMENTS: Final[Mapping[Workstream, str]] = {
-    Workstream.LEGAL: "contract_customer_x.pdf",
+    Workstream.LEGAL: "contract_meridian_logistics.pdf",
     Workstream.FINANCE: "financials_fy27.xlsx",
-    Workstream.HR: "hr_roster_acme.xlsx",
+    Workstream.HR: "hr_roster_vantage.xlsx",
     Workstream.IP_TECH: "tech_inventory.pdf",
 }
 
@@ -71,7 +71,7 @@ def _line_containing(parsed: ParsedDoc, marker: str) -> str:
 def _legal_fact(parsed: ParsedDoc) -> WorkstreamFact:
     target = next(c for c in chunk(parsed) if c.locator == "clause:11.3")
     return WorkstreamFact(
-        title="Customer X change-of-control termination right",
+        title="Meridian Logistics change-of-control termination right",
         summary=(
             "Section 11.3 of the Meridian Logistics master services agreement "
             "grants either party a termination right within 90 days of a change "
@@ -89,10 +89,8 @@ def _legal_fact(parsed: ParsedDoc) -> WorkstreamFact:
 def _finance_fact(parsed: ParsedDoc) -> WorkstreamFact:
     share = OfflineFinanceResponder().compute_share().value
     return WorkstreamFact(
-        title="Customer X revenue concentration",
-        summary=(
-            f"Meridian Logistics (Customer X) represents {share:.1f}% of projected FY27 revenue."
-        ),
+        title="Meridian Logistics revenue concentration",
+        summary=(f"Meridian Logistics represents {share:.1f}% of projected FY27 revenue."),
         severity="medium",
         confidence=0.95,
         document_id=parsed.document_id,

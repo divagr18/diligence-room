@@ -84,7 +84,7 @@ class TestFactory:
             firestore_client, "legal", DEAL, publisher, DatasetDocSource()
         )
         read_tool = _tool_by_name(legal, "data_room_read")
-        allowed = read_tool(category="contracts", name="contract_customer_x.pdf")
+        allowed = read_tool(category="contracts", name="contract_meridian_logistics.pdf")
         denied = read_tool(category="financials", name="financials_fy27.xlsx")
         assert allowed["decision"] == "allow"
         assert denied["decision"] == "deny"

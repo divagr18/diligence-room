@@ -21,7 +21,7 @@ from runtime.dispatcher import authorized_read
 from runtime.events import EventEnvelope
 
 _DATA_ROOTS = (
-    Path(__file__).resolve().parents[2] / "data" / "acme_robotics",
+    Path(__file__).resolve().parents[2] / "data" / "vantage_robotics",
     Path(__file__).resolve().parents[2] / "data" / "scenarios",
 )
 

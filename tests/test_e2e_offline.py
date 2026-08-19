@@ -52,7 +52,7 @@ class TestOfflineEndToEnd:
 
         notification = {
             "bucket": "diligence-room-dataroom-deal-falcon-us",
-            "name": "contract_customer_x.pdf",
+            "name": "contract_meridian_logistics.pdf",
             "eventType": "OBJECT_FINALIZE",
             "contentType": "application/pdf",
         }
@@ -72,7 +72,7 @@ class TestOfflineEndToEnd:
         assert first.type == "document.ingested"
         assert first.actor == "bucket-notification"
         payload = json.loads(first.payload_json)
-        assert payload["document_id"] == "contract_customer_x.pdf"
+        assert payload["document_id"] == "contract_meridian_logistics.pdf"
         assert payload["bucket"] == "diligence-room-dataroom-deal-falcon-us"
 
         deal_snapshot = firestore_client.collection("deals").document("deal-falcon").get()

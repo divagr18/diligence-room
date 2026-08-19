@@ -33,9 +33,9 @@ _REQUIRED_ENV: tuple[str, ...] = (
 
 # agent_id -> (document, category) for the authz-scoped data-room read.
 _DEEP_TASKS: dict[str, tuple[str, str]] = {
-    "legal": ("contract_customer_x.pdf", "contracts"),
+    "legal": ("contract_meridian_logistics.pdf", "contracts"),
     "finance": ("financials_fy27.xlsx", "financials"),
-    "hr": ("hr_roster_acme.xlsx", "rosters"),
+    "hr": ("hr_roster_vantage.xlsx", "rosters"),
     "ip_tech": ("tech_inventory.pdf", "tech-inventory"),
 }
 

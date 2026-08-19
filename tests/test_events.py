@@ -45,12 +45,12 @@ class TestEnvelopeConstruction:
             deal_id="deal-falcon",
             actor="legal-agent@deal-falcon",
             event_type=EventType.DOCUMENT_INGESTED,
-            payload={"document_id": "contract_customer_x.pdf"},
+            payload={"document_id": "contract_meridian_logistics.pdf"},
         )
         assert event.deal_id == "deal-falcon"
         assert event.actor == "legal-agent@deal-falcon"
         assert event.type is EventType.DOCUMENT_INGESTED
-        assert event.payload == {"document_id": "contract_customer_x.pdf"}
+        assert event.payload == {"document_id": "contract_meridian_logistics.pdf"}
         assert event.event_id
         assert event.ts.tzinfo is not None
 

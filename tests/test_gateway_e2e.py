@@ -35,8 +35,8 @@ from runtime.dispatcher import authorized_read
 from runtime.events import EventEnvelope
 
 DEAL = "deal-falcon"
-_DATA = Path(__file__).resolve().parent.parent / "data" / "acme_robotics"
-_CONTRACT = _DATA / "contract_customer_x.pdf"
+_DATA = Path(__file__).resolve().parent.parent / "data" / "vantage_robotics"
+_CONTRACT = _DATA / "contract_meridian_logistics.pdf"
 _FINANCIALS = _DATA / "financials_fy27.xlsx"
 
 T0 = datetime(2026, 8, 18, 9, 0, tzinfo=UTC)
@@ -94,7 +94,7 @@ class TestGovernedChain:
             finding_id="LEGAL-001",
             deal_id=DEAL,
             workstream=Workstream.LEGAL,
-            title="Customer X change-of-control termination right",
+            title="Meridian Logistics change-of-control termination right",
             summary=(
                 "The Meridian Logistics master services agreement grants either "
                 "party a termination right within 90 days of a change of control."
@@ -122,10 +122,7 @@ class TestGovernedChain:
             sender=legal,
             deal_id=DEAL,
             target=Workstream.FINANCE,
-            question=(
-                "What percentage of projected FY27 revenue comes from Meridian "
-                "Logistics (Customer X)?"
-            ),
+            question=("What percentage of projected FY27 revenue comes from Meridian Logistics?"),
             purpose="change_of_control_exposure",
             ts=T1,
         )
@@ -144,9 +141,9 @@ class TestGovernedChain:
             finding_id="LEGAL-002",
             deal_id=DEAL,
             workstream=Workstream.LEGAL,
-            title="Customer X revenue concentration amplifies CoC termination risk",
+            title="Meridian Logistics revenue concentration amplifies CoC termination risk",
             summary=(
-                "Finance confirmed via the gateway that Customer X represents "
+                "Finance confirmed via the gateway that Meridian Logistics represents "
                 "18.3% of projected FY27 revenue; the CoC termination right "
                 "therefore carries material revenue risk."
             ),

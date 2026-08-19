@@ -27,7 +27,12 @@ class TestRegisterDocument:
     ) -> None:
         content = b"contract bytes v1"
         record = register_document(
-            firestore_client, "deal-falcon", "contract_customer_x", "contract-v1", content, now=_T0
+            firestore_client,
+            "deal-falcon",
+            "contract_meridian_logistics",
+            "contract-v1",
+            content,
+            now=_T0,
         )
         assert record.status is LineageStatus.NEW
         assert record.version == 1

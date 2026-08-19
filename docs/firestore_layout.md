@@ -13,7 +13,7 @@ partitions (D3-M3).
 |---|---|---|
 | deal_id | string | equals document id |
 | name | string | e.g. `Project Falcon` |
-| target | string | e.g. `Acme Robotics` |
+| target | string | e.g. `Vantage Robotics` |
 | deal_type | string | `Acquisition` |
 | regions | array\<string\> | e.g. `["US","EU"]` — drives region pinning (§7.8) |
 | expected_window_days | int | |

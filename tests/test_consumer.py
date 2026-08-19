@@ -32,7 +32,7 @@ NOW = datetime(2026, 8, 15, 9, 0, tzinfo=UTC)
 
 FALCON_US_NOTIFICATION: dict[str, object] = {
     "bucket": "diligence-room-dataroom-deal-falcon-us",
-    "name": "contract_customer_x.pdf",
+    "name": "contract_meridian_logistics.pdf",
     "eventType": "OBJECT_FINALIZE",
     "contentType": "application/pdf",
 }
@@ -99,12 +99,12 @@ class TestProcessNotification:
         assert first.type == "document.ingested"
         assert first.actor == "bucket-notification"
         payload = json.loads(first.payload_json)
-        assert payload["document_id"] == "contract_customer_x.pdf"
+        assert payload["document_id"] == "contract_meridian_logistics.pdf"
 
         deal_data = falcon_client.collection("deals").document(FALCON_DEAL_ID).get().to_dict()
         assert deal_data is not None
         assert deal_data["documents_ingested"] == 1
-        assert deal_data["last_document_id"] == "contract_customer_x.pdf"
+        assert deal_data["last_document_id"] == "contract_meridian_logistics.pdf"
         last_ingested_at = deal_data["last_ingested_at"]
         assert isinstance(last_ingested_at, datetime)
         assert last_ingested_at.tzinfo is not None
@@ -112,7 +112,7 @@ class TestProcessNotification:
         assert len(invoker.calls) == 1
         deal_id, message = invoker.calls[0]
         assert deal_id == FALCON_DEAL_ID
-        assert "contract_customer_x.pdf" in message
+        assert "contract_meridian_logistics.pdf" in message
         assert FALCON_DEAL_ID in message
 
     def test_duplicate_payload_is_not_reprocessed(self, falcon_client: firestore.Client) -> None:
@@ -165,7 +165,7 @@ class TestProcessNotification:
         consumer = _make_consumer(falcon_client, FeedSource([]), invoker)
         payload = {
             "bucket": "some-other-bucket",
-            "name": "contract_customer_x.pdf",
+            "name": "contract_meridian_logistics.pdf",
             "eventType": "OBJECT_FINALIZE",
         }
 

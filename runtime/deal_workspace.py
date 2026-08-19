@@ -24,7 +24,7 @@ def build_falcon_deal(now: datetime) -> Deal:
     return Deal(
         deal_id=FALCON_DEAL_ID,
         name="Project Falcon",
-        target="Acme Robotics",
+        target="Vantage Robotics",
         deal_type="Acquisition",
         regions=("US", "EU"),
         expected_window_days=90,

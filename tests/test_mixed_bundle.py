@@ -27,13 +27,13 @@ from runtime.events import EventEnvelope, EventType, InMemoryPublisher
 
 BundleRun = tuple[dict[str, IngestResult], list[EventEnvelope], list[ReadableSpan]]
 
-_DATA = Path(__file__).resolve().parent.parent / "data" / "acme_robotics"
+_DATA = Path(__file__).resolve().parent.parent / "data" / "vantage_robotics"
 _SCENARIOS = Path(__file__).resolve().parent.parent / "data" / "scenarios"
 
 _BUNDLE: tuple[tuple[str, Path], ...] = (
-    ("contract_customer_x.pdf", _DATA / "contract_customer_x.pdf"),
+    ("contract_meridian_logistics.pdf", _DATA / "contract_meridian_logistics.pdf"),
     ("financials_fy27.xlsx", _DATA / "financials_fy27.xlsx"),
-    ("hr_roster_acme.xlsx", _DATA / "hr_roster_acme.xlsx"),
+    ("hr_roster_vantage.xlsx", _DATA / "hr_roster_vantage.xlsx"),
     ("tech_inventory.pdf", _DATA / "tech_inventory.pdf"),
     ("vendor_agreement_2027.pdf", _DATA / "vendor_agreement_2027.pdf"),
     ("memo_fleet_operations.docx", _SCENARIOS / "memo_fleet_operations.docx"),
@@ -42,9 +42,9 @@ _BUNDLE: tuple[tuple[str, Path], ...] = (
 )
 
 _EXPECTED_ROUTES: dict[str, str] = {
-    "contract_customer_x.pdf": "legal",
+    "contract_meridian_logistics.pdf": "legal",
     "financials_fy27.xlsx": "finance",
-    "hr_roster_acme.xlsx": "hr",
+    "hr_roster_vantage.xlsx": "hr",
     "tech_inventory.pdf": "ip_tech",
     "vendor_agreement_2027.pdf": "legal",
     "memo_fleet_operations.docx": "ip_tech",
@@ -68,10 +68,10 @@ def bundle_run(firestore_client: firestore.Client) -> BundleRun:
     duplicate = ingest_blob(
         context,
         "deal-falcon",
-        "contract_customer_x.pdf",
-        (_DATA / "contract_customer_x.pdf").read_bytes(),
+        "contract_meridian_logistics.pdf",
+        (_DATA / "contract_meridian_logistics.pdf").read_bytes(),
     )
-    results["contract_customer_x.pdf (resubmit)"] = duplicate
+    results["contract_meridian_logistics.pdf (resubmit)"] = duplicate
     envelopes = [EventEnvelope.from_json(raw) for raw in publisher.published]
     return results, envelopes, list(exporter.get_finished_spans())
 
@@ -117,11 +117,11 @@ class TestMixedBundleGate:
 
     def test_duplicate_contract_suppressed_on_resubmit(self, bundle_run: BundleRun) -> None:
         results, envelopes, _spans = bundle_run
-        assert results["contract_customer_x.pdf (resubmit)"].status == "suppressed"
+        assert results["contract_meridian_logistics.pdf (resubmit)"].status == "suppressed"
         contract_events = [
             event
             for event in envelopes
-            if event.payload.get("document_id") == "contract_customer_x.pdf"
+            if event.payload.get("document_id") == "contract_meridian_logistics.pdf"
         ]
         assert len(contract_events) == 2, "resubmit must add no events"
 

@@ -22,13 +22,13 @@ from registry.models import Workstream
 from runtime.events import EventEnvelope, EventType, InMemoryPublisher
 
 DEAL = "deal-falcon"
-_DATA = "data/acme_robotics/"
+_DATA = "data/vantage_robotics/"
 
 
 def _contract_coc_span() -> str:
-    path = DatasetDocSource().read("contract_customer_x.pdf")
+    path = DatasetDocSource().read("contract_meridian_logistics.pdf")
     assert path is not None
-    doc = LocalParser().parse(path, "contract_customer_x.pdf", DEAL)
+    doc = LocalParser().parse(path, "contract_meridian_logistics.pdf", DEAL)
     chunks = chunk(doc)
     return next(c.text for c in chunks if c.locator == "clause:11.3")
 
@@ -45,7 +45,7 @@ def _financials_meridian_span() -> str:
 
 def _valid_finding_json(span: str) -> dict[str, object]:
     return {
-        "title": "Customer X change-of-control termination right",
+        "title": "Meridian Logistics change-of-control termination right",
         "summary": (
             "The Meridian master services agreement grants a termination right "
             "within 90 days of a change of control."
@@ -55,12 +55,12 @@ def _valid_finding_json(span: str) -> dict[str, object]:
         "evidence": [
             {
                 "verbatim_span": span,
-                "document_id": "contract_customer_x.pdf",
+                "document_id": "contract_meridian_logistics.pdf",
                 "category": "contracts",
                 "chunk_ref": "clause:11.3",
             }
         ],
-        "source_documents": ["contract_customer_x.pdf"],
+        "source_documents": ["contract_meridian_logistics.pdf"],
         "affected_entities": ["Meridian Logistics, Inc."],
         "questions": [],
     }
@@ -218,7 +218,7 @@ class TestEvidenceAuthorization:
         payload["evidence"] = [
             {
                 "verbatim_span": _contract_coc_span(),
-                "document_id": "contract_customer_x.pdf",
+                "document_id": "contract_meridian_logistics.pdf",
                 "chunk_ref": "clause:11.3",
             }
         ]
@@ -232,7 +232,7 @@ class TestEvidenceAuthorization:
         payload["evidence"] = [
             {
                 "verbatim_span": _contract_coc_span(),
-                "document_id": "contract_customer_x.pdf",
+                "document_id": "contract_meridian_logistics.pdf",
                 "category": "not-a-real-category",
                 "chunk_ref": "clause:11.3",
             }

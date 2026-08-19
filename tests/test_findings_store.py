@@ -33,7 +33,7 @@ _EVIDENCE = Evidence(
         "may terminate this Agreement by written notice delivered "
         "within ninety (90) days following a Change of Control"
     ),
-    document_id="contract_customer_x.pdf",
+    document_id="contract_meridian_logistics.pdf",
 )
 
 
@@ -47,15 +47,15 @@ def _finding(
         "finding_id": finding_id,
         "deal_id": deal_id,
         "workstream": workstream,
-        "title": "Customer X change-of-control termination right",
+        "title": "Meridian Logistics change-of-control termination right",
         "summary": "Top customer agreement contains a CoC termination right.",
         "severity": FindingSeverity.HIGH,
         "confidence": 0.94,
         "status": FindingStatus.CANDIDATE,
         "evidence": (_EVIDENCE,),
-        "source_documents": ("contract_customer_x.pdf",),
+        "source_documents": ("contract_meridian_logistics.pdf",),
         "related_findings": (),
-        "affected_entities": ("Customer X",),
+        "affected_entities": ("Meridian Logistics",),
         "questions": ("Is the CoC clause negotiable?",),
         "owner": "legal-agent@deal-falcon",
         "created_at": NOW,
@@ -74,9 +74,9 @@ class TestFindingsToDoc:
 
     def test_serializes_tuples_to_lists(self) -> None:
         doc = findings_to_doc(_finding())
-        assert doc["source_documents"] == ["contract_customer_x.pdf"]
+        assert doc["source_documents"] == ["contract_meridian_logistics.pdf"]
         assert doc["related_findings"] == []
-        assert doc["affected_entities"] == ["Customer X"]
+        assert doc["affected_entities"] == ["Meridian Logistics"]
         assert doc["questions"] == ["Is the CoC clause negotiable?"]
 
     def test_serializes_evidence_to_list_of_dicts(self) -> None:
@@ -85,7 +85,7 @@ class TestFindingsToDoc:
         assert len(doc["evidence"]) == 1
         ev = doc["evidence"][0]
         assert ev["verbatim_span"] == _EVIDENCE.verbatim_span
-        assert ev["document_id"] == "contract_customer_x.pdf"
+        assert ev["document_id"] == "contract_meridian_logistics.pdf"
         assert ev["chunk_ref"] is None
 
     def test_audit_trace_id_none_stored(self) -> None:
@@ -172,10 +172,10 @@ class TestFindingsStoreCreateGet:
         assert loaded.confidence == 0.94
         assert loaded.status is FindingStatus.CANDIDATE
         assert loaded.evidence[0].verbatim_span == _EVIDENCE.verbatim_span
-        assert loaded.evidence[0].document_id == "contract_customer_x.pdf"
-        assert loaded.source_documents == ("contract_customer_x.pdf",)
+        assert loaded.evidence[0].document_id == "contract_meridian_logistics.pdf"
+        assert loaded.source_documents == ("contract_meridian_logistics.pdf",)
         assert loaded.related_findings == ()
-        assert loaded.affected_entities == ("Customer X",)
+        assert loaded.affected_entities == ("Meridian Logistics",)
         assert loaded.questions == ("Is the CoC clause negotiable?",)
         assert loaded.owner == "legal-agent@deal-falcon"
         assert loaded.audit_trace_id is None

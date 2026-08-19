@@ -30,7 +30,7 @@ diligence-room/
 ├── coordination/ scoring.py · escalation.py
 ├── redteam/      attacks/ (fixtures, 4 class folders) · runner.py · scorecard.py
 ├── dashboard/    api/ (FastAPI) · web/ (React: views Overview, Finding+Trace, Security, Registry)
-├── data/         acme_robotics/ (synthetic docs) · scenarios/project_falcon.json
+├── data/         vantage_robotics/ (synthetic docs) · scenarios/project_falcon.json
 ├── evals/        golden_set.py · harness.py
 └── tests/        test_isolation.py · test_evidence_gate.py · test_guards.py · ...
 ```
@@ -87,7 +87,7 @@ diligence-room/
 | D2-M1 | Event schema + publisher | A | `runtime/events.py`: typed events (`document.ingested`, `finding.created`, `gateway.decision`, `security.event`), envelope `{event_id, deal_id, ts, actor, payload}`, publisher with dedupe key | D1-M1 | 1.5 |
 | D2-M2 | Data-room buckets | A | regional Cloud Storage buckets (US + EU pair per vision §7.8), Pub/Sub notifications on object finalize, `docs/deal_provisioning.md` | D1-M1 | 1.0 |
 | D2-M3 | Registry store | B | `registry/store.py`: Firestore-backed CRUD for manifests/versions incl. `rollback_target`, `approved`, `eval_score` | D1-M4 | 1.5 |
-| D2-M4 | Dataset plan + first docs | B | `data/acme_robotics/DATASET_PLAN.md` (full seed table from vision §26) + authored `contract_customer_x.pdf` (CoC clause) + `financials_fy27.xlsx` (Customer X = 18.3%) | — | 1.0 |
+| D2-M4 | Dataset plan + first docs | B | `data/vantage_robotics/DATASET_PLAN.md` (full seed table from vision §26) + authored `contract_meridian_logistics.pdf` (CoC clause) + `financials_fy27.xlsx` (Customer X = 18.3%) | — | 1.0 |
 
 **Phase exit:** `gcloud storage cp` fires a notification event; registry store unit tests green.
 
@@ -141,7 +141,7 @@ diligence-room/
 
 ### Phase 3 — First real finding + gate (h 5:00–6:00)
 
-- [ ] Legal agent processes `contract_customer_x.pdf` → finding with **evidence span pointing at the CoC clause text**
+- [ ] Legal agent processes `contract_meridian_logistics.pdf` → finding with **evidence span pointing at the CoC clause text**
 - [ ] Negative tests demonstrated on camera (footage reusable for the video's isolation proof)
 
 **If red:** partition leakage → stop all downstream work; isolation is keystone.

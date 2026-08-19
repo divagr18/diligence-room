@@ -117,7 +117,7 @@ class TestWorkstreamIsolation:
     ) -> None:
         principal = principal_for("hr", "deal-falcon")
         resource = parse_resource(
-            "deals/deal-falcon/workstreams/finance/valuation/acme-model.xlsx",
+            "deals/deal-falcon/workstreams/finance/valuation/vantage-model.xlsx",
         )
         pub = _EventLogPublisher(firestore_client)
         with pytest.raises(AuthzDenied) as exc_info:
@@ -138,7 +138,7 @@ class TestWorkstreamIsolation:
         """Allowed read emits NO event."""
         principal = principal_for("legal", "deal-falcon")
         resource = parse_resource(
-            "deals/deal-falcon/workstreams/legal/contracts/contract_customer_x.pdf",
+            "deals/deal-falcon/workstreams/legal/contracts/contract_meridian_logistics.pdf",
         )
         pub = _EventLogPublisher(firestore_client)
         authorize(principal, Action.READ, resource, publisher=pub)

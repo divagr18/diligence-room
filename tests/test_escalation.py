@@ -37,28 +37,28 @@ NOW = datetime(2026, 8, 20, 15, 0, tzinfo=UTC)
 
 
 def _contract_coc_span() -> str:
-    blob = DatasetDocSource().read("contract_customer_x.pdf")
+    blob = DatasetDocSource().read("contract_meridian_logistics.pdf")
     assert blob is not None
-    doc = LocalParser().parse(blob, "contract_customer_x.pdf", DEAL)
+    doc = LocalParser().parse(blob, "contract_meridian_logistics.pdf", DEAL)
     chunks = chunk(doc)
     return next(c.text for c in chunks if c.locator == "clause:11.3")
 
 
 def _critical_finding_json(span: str) -> dict[str, object]:
     return {
-        "title": "Customer X change-of-control termination right",
+        "title": "Meridian Logistics change-of-control termination right",
         "summary": "Terminal revenue risk if the CoC clause fires at close.",
         "severity": "critical",
         "confidence": 0.9,
         "evidence": [
             {
                 "verbatim_span": span,
-                "document_id": "contract_customer_x.pdf",
+                "document_id": "contract_meridian_logistics.pdf",
                 "category": "contracts",
                 "chunk_ref": "clause:11.3",
             }
         ],
-        "source_documents": ["contract_customer_x.pdf"],
+        "source_documents": ["contract_meridian_logistics.pdf"],
         "affected_entities": ["Meridian Logistics, Inc."],
         "questions": [],
     }
@@ -74,7 +74,9 @@ def _finding(severity: FindingSeverity) -> Finding:
         severity=severity,
         confidence=0.9,
         status=FindingStatus.OPEN,
-        evidence=(Evidence(verbatim_span="quoted span", document_id="contract_customer_x.pdf"),),
+        evidence=(
+            Evidence(verbatim_span="quoted span", document_id="contract_meridian_logistics.pdf"),
+        ),
         owner="legal-agent@deal-falcon",
         created_at=NOW,
         updated_at=NOW,

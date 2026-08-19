@@ -27,7 +27,7 @@ diligence-room/
 ├── coordination/   Red-flag scoring, escalation
 ├── redteam/        20-attack red-team suite + scorecard
 ├── dashboard/      FastAPI backend + React frontend (4 views)
-├── data/           Synthetic Acme Robotics dataset + replay scenarios
+├── data/           Synthetic Vantage Robotics dataset + replay scenarios
 ├── evals/          Golden set + shadow evaluation harness
 └── tests/          Isolation, evidence-gate, guards, and unit tests
 ```

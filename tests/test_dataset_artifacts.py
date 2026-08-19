@@ -17,7 +17,7 @@ from scripts.author_dataset import (
     MERIDIAN_REVENUE,
     TOTAL_REVENUE,
     write_amendment_2030,
-    write_contract_customer_x,
+    write_contract_meridian_logistics,
     write_financials_fy27,
     write_hr_roster,
     write_scanned_invoice,
@@ -25,11 +25,11 @@ from scripts.author_dataset import (
     write_vendor_agreement_2027,
 )
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "acme_robotics"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "vantage_robotics"
 SCENARIOS_DIR = Path(__file__).resolve().parent.parent / "data" / "scenarios"
-CONTRACT_PDF = DATA_DIR / "contract_customer_x.pdf"
+CONTRACT_PDF = DATA_DIR / "contract_meridian_logistics.pdf"
 FINANCIALS_XLSX = DATA_DIR / "financials_fy27.xlsx"
-HR_ROSTER_XLSX = DATA_DIR / "hr_roster_acme.xlsx"
+HR_ROSTER_XLSX = DATA_DIR / "hr_roster_vantage.xlsx"
 TECH_INVENTORY_PDF = DATA_DIR / "tech_inventory.pdf"
 VENDOR_AGREEMENT_PDF = DATA_DIR / "vendor_agreement_2027.pdf"
 SCANNED_INVOICE_PDF = SCENARIOS_DIR / "scanned_invoice.pdf"
@@ -69,8 +69,8 @@ class TestContractArtifact:
         assert "11.3" in _normalized_pdf_text(CONTRACT_PDF)
 
     def test_regeneration_is_byte_identical(self, tmp_path: Path) -> None:
-        regenerated = tmp_path / "contract_customer_x.pdf"
-        write_contract_customer_x(regenerated)
+        regenerated = tmp_path / "contract_meridian_logistics.pdf"
+        write_contract_meridian_logistics(regenerated)
         assert regenerated.read_bytes() == CONTRACT_PDF.read_bytes()
 
 
@@ -141,7 +141,7 @@ class TestHrRosterAndTechInventory:
         assert (departure.date() - ROSTER_DATE).days == 60
 
     def test_hr_roster_regeneration_preserves_whitfield(self, tmp_path: Path) -> None:
-        regenerated = tmp_path / "hr_roster_acme.xlsx"
+        regenerated = tmp_path / "hr_roster_vantage.xlsx"
         write_hr_roster(regenerated)
         assert self._whitfield_row(regenerated) == self._whitfield_row(HR_ROSTER_XLSX)
 
@@ -168,7 +168,7 @@ class TestTechInventoryFactStability:
             "to a supported runtime is estimated at 9-12 months."
         ),
         (
-            "Proprietary computer-vision pipeline; patents assigned to Acme "
+            "Proprietary computer-vision pipeline; patents assigned to Vantage "
             "Robotics, Inc. Open-source components under Apache-2.0."
         ),
         "Firmware maintained in-house; hardware refresh due FY28.",
@@ -184,7 +184,7 @@ class TestVendorAgreement2027:
     def test_titanbridge_license_present(self) -> None:
         text = _normalized_pdf_text(VENDOR_AGREEMENT_PDF)
         assert "TitanBridge" in text
-        assert "Acme Robotics" in text
+        assert "Vantage Robotics" in text
         assert "TitanBridge Systems" in text
 
     def test_exclusivity_ends_2027_06_30(self) -> None:
@@ -225,7 +225,7 @@ class TestRegenerationDeterminism:
         assert regenerated.read_bytes() == FINANCIALS_XLSX.read_bytes()
 
     def test_hr_roster_regenerates_byte_identical(self, tmp_path: Path) -> None:
-        regenerated = tmp_path / "hr_roster_acme.xlsx"
+        regenerated = tmp_path / "hr_roster_vantage.xlsx"
         write_hr_roster(regenerated)
         assert regenerated.read_bytes() == HR_ROSTER_XLSX.read_bytes()
 

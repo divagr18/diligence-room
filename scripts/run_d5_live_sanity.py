@@ -28,7 +28,7 @@ _REQUIRED_ENV: tuple[str, ...] = (
     "GOOGLE_CLOUD_LOCATION",
 )
 
-_QUESTION = "What percentage of projected FY27 revenue comes from Meridian Logistics (Customer X)?"
+_QUESTION = "What percentage of projected FY27 revenue comes from Meridian Logistics?"
 _MARKER = "18.3"
 
 
