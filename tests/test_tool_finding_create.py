@@ -107,7 +107,7 @@ class TestFindingCreate:
         payload = _valid_finding_json("this text does not exist in any document")
         result = tool(finding_json=json.dumps(payload))
         assert result["decision"] == "reject"
-        assert result["reason"] == "evidence_not_verifiable"
+        assert result["reason"] == "evidence_unresolvable"
         assert FindingsStore(firestore_client).list_for_workstream(DEAL, Workstream.LEGAL) == []
 
     def test_unresolvable_document_rejected(self, firestore_client: firestore.Client) -> None:
@@ -125,7 +125,7 @@ class TestFindingCreate:
         ]
         result = tool(finding_json=json.dumps(payload))
         assert result["decision"] == "reject"
-        assert result["reason"] == "evidence_not_verifiable"
+        assert result["reason"] == "evidence_unresolvable"
 
     def test_empty_evidence_rejected(self, firestore_client: firestore.Client) -> None:
         tool = make_finding_create(

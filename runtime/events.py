@@ -26,6 +26,7 @@ class EventType(StrEnum):
     SECURITY_EVENT = "security.event"
     DEAD_LETTERED = "runner.dead_lettered"
     RUN_BOUNDS_EXCEEDED = "run.bounds_exceeded"
+    EVIDENCE_REJECTED = "evidence.rejected"
 
 
 def _canonical_json(payload: Mapping[str, object]) -> str:

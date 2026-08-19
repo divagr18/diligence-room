@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, Final, Protocol
 
 from google.cloud import firestore
 
@@ -30,12 +30,16 @@ from memory.findings import (
     FindingStatus,
 )
 from memory.partitions import partition_collection
-from runtime.events import EventEnvelope
+from runtime.events import EventEnvelope, EventType, new_event
 
 _SEVERITIES = frozenset(severity.value for severity in FindingSeverity)
 
 _AUTH_DENIED = "evidence_unauthorized"
 _INVALID_CATEGORY = "invalid_category"
+_EVIDENCE_UNRESOLVABLE = "evidence_unresolvable"
+
+# Vision §19.3: confidence below this caps the finding at candidate.
+EVIDENCE_CANDIDATE_THRESHOLD: Final[float] = 0.75
 
 
 class _EventPublisher(Protocol):
@@ -160,7 +164,7 @@ def make_finding_create(
         Returns:
             Dict with "decision" ("created" plus "finding_id", or "reject"
             plus machine-readable "reason": invalid_contract |
-            evidence_unauthorized | evidence_not_verifiable | duplicate_finding).
+            evidence_unauthorized | evidence_unresolvable | duplicate_finding).
         """
         try:
             payload = json.loads(finding_json)
@@ -200,8 +204,22 @@ def make_finding_create(
             )
         evidence = _verify_spans(structural, principal, doc_source)
         if evidence is None:
+            if publisher is not None:
+                publisher.publish(
+                    new_event(
+                        principal.deal_id,
+                        principal.name,
+                        EventType.EVIDENCE_REJECTED,
+                        {
+                            "decision": "reject",
+                            "reason": _EVIDENCE_UNRESOLVABLE,
+                            "identity": principal.name,
+                            "title": title,
+                        },
+                    )
+                )
             return _reject(
-                "evidence_not_verifiable",
+                _EVIDENCE_UNRESOLVABLE,
                 "every evidence entry needs a verbatim_span that is an exact "
                 "substring of the cited document's parsed text",
             )
@@ -216,6 +234,12 @@ def make_finding_create(
         source_documents = _string_list(payload.get("source_documents")) or tuple(
             entry.document_id for entry in evidence
         )
+        # Vision §19.3: low-confidence findings are capped at candidate.
+        initial_status = (
+            FindingStatus.CANDIDATE
+            if float(confidence) < EVIDENCE_CANDIDATE_THRESHOLD
+            else FindingStatus.OPEN
+        )
         finding = Finding(
             finding_id=finding_id,
             deal_id=principal.deal_id,
@@ -224,7 +248,7 @@ def make_finding_create(
             summary=summary,
             severity=FindingSeverity(severity),
             confidence=float(confidence),
-            status=FindingStatus.OPEN,
+            status=initial_status,
             evidence=evidence,
             owner=principal.name,
             created_at=stamp,
@@ -250,8 +274,10 @@ def make_finding_create(
                 "created_at": stamp.isoformat(),
             }
         )
-        # Vision §10: critical findings automatically notify the deal lead.
-        escalate_if_critical(client, publisher, finding, now=stamp)
+        # Vision §10: critical findings automatically notify the deal lead;
+        # §19.3 candidate-capped findings never auto-escalate.
+        if finding.status is not FindingStatus.CANDIDATE:
+            escalate_if_critical(client, publisher, finding, now=stamp)
         return {"decision": "created", "finding_id": finding_id}
 
     return finding_create

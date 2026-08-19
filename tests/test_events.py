@@ -36,6 +36,8 @@ class TestEventType:
             "gateway.decision",
             "security.event",
             "runner.dead_lettered",
+            "run.bounds_exceeded",
+            "evidence.rejected",
         }
 
 
