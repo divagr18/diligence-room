@@ -38,6 +38,7 @@ class TestEventType:
             "runner.dead_lettered",
             "run.bounds_exceeded",
             "evidence.rejected",
+            "runner.checkpoint",
         }
 
 
