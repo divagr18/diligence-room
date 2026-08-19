@@ -26,8 +26,7 @@ export default function Security() {
           const complete = g.blocked === g.total;
           return (
             <div key={g.group} className="rounded-lg border border-line bg-card px-4 py-3">
-              <div className="overline">{g.group}</div>
-              <div className="mt-1.5 flex items-baseline gap-2">
+              <div className="flex items-baseline gap-2">
                 <span
                   className={`tabular font-mono text-[22px] font-medium leading-none ${
                     complete ? "text-ok" : "text-sev-high"
@@ -37,6 +36,7 @@ export default function Security() {
                 </span>
                 <span className="text-[12px] text-ink4">blocked</span>
               </div>
+              <div className="mt-2 text-[12px] font-medium text-ink3">{g.group}</div>
               <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-card2">
                 <div
                   className={`h-full rounded-full transition-[width] duration-300 ease-out ${
@@ -56,15 +56,15 @@ export default function Security() {
           <table className="w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-line">
-                <th scope="col" className="overline px-4 py-2.5 font-medium">Document</th>
-                <th scope="col" className="overline px-4 py-2.5 font-medium">Blocking layer</th>
-                <th scope="col" className="overline hidden px-4 py-2.5 font-medium md:table-cell">
+                <th scope="col" className="px-4 py-2.5 text-[12px] font-medium text-ink3">Document</th>
+                <th scope="col" className="px-4 py-2.5 text-[12px] font-medium text-ink3">Blocking layer</th>
+                <th scope="col" className="hidden px-4 py-2.5 text-[12px] font-medium text-ink3 md:table-cell">
                   Reason codes
                 </th>
-                <th scope="col" className="overline hidden px-4 py-2.5 font-medium sm:table-cell">
+                <th scope="col" className="hidden px-4 py-2.5 text-[12px] font-medium text-ink3 sm:table-cell">
                   Class
                 </th>
-                <th scope="col" className="overline hidden px-4 py-2.5 text-right font-medium lg:table-cell">
+                <th scope="col" className="hidden px-4 py-2.5 text-right text-[12px] font-medium text-ink3 lg:table-cell">
                   Time
                 </th>
               </tr>

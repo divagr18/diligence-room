@@ -81,14 +81,14 @@ export function StatTile({
 }) {
   return (
     <div className="rounded-lg border border-line bg-card px-4 py-3">
-      <div className="flex items-center gap-1.5">
-        {tone ? <span className={`size-1.5 rounded-full ${SEV_DOT[tone] ?? "bg-ink4"}`} aria-hidden /> : null}
-        <span className="overline">{label}</span>
-      </div>
-      <div className="tabular mt-1.5 font-mono text-[22px] font-medium leading-none tracking-tight text-ink1">
+      <div className="tabular font-mono text-[22px] font-medium leading-none tracking-tight text-ink1">
         {value}
       </div>
-      {hint ? <div className="mt-1.5 text-[12px] text-ink4">{hint}</div> : null}
+      <div className="mt-2 flex items-center gap-1.5">
+        {tone ? <span className={`size-1.5 rounded-full ${SEV_DOT[tone] ?? "bg-ink4"}`} aria-hidden /> : null}
+        <span className="text-[12px] font-medium text-ink3">{label}</span>
+      </div>
+      {hint ? <div className="mt-1 text-[12px] text-ink4">{hint}</div> : null}
     </div>
   );
 }

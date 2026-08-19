@@ -67,8 +67,4 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
-
-  .overline {
-    @apply text-[11px] font-medium tracking-[0.08em] uppercase text-ink4;
-  }
 }

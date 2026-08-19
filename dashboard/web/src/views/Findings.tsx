@@ -72,14 +72,14 @@ export default function Findings() {
         <table className="w-full border-collapse text-left">
           <thead>
             <tr className="border-b border-line">
-              <th scope="col" className="overline px-4 py-2.5 font-medium">Severity</th>
-              <th scope="col" className="overline px-4 py-2.5 font-medium">Finding</th>
-              <th scope="col" className="overline hidden px-4 py-2.5 font-medium lg:table-cell">Workstream</th>
-              <th scope="col" className="overline hidden px-4 py-2.5 text-right font-medium sm:table-cell">
+              <th scope="col" className="px-4 py-2.5 text-[12px] font-medium text-ink3">Severity</th>
+              <th scope="col" className="px-4 py-2.5 text-[12px] font-medium text-ink3">Finding</th>
+              <th scope="col" className="hidden px-4 py-2.5 text-[12px] font-medium text-ink3 lg:table-cell">Workstream</th>
+              <th scope="col" className="hidden px-4 py-2.5 text-right text-[12px] font-medium text-ink3 sm:table-cell">
                 Confidence
               </th>
-              <th scope="col" className="overline hidden px-4 py-2.5 font-medium md:table-cell">Status</th>
-              <th scope="col" className="overline hidden px-4 py-2.5 text-right font-medium xl:table-cell">
+              <th scope="col" className="hidden px-4 py-2.5 text-[12px] font-medium text-ink3 md:table-cell">Status</th>
+              <th scope="col" className="hidden px-4 py-2.5 text-right text-[12px] font-medium text-ink3 xl:table-cell">
                 Updated
               </th>
             </tr>

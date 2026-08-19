@@ -18,8 +18,7 @@ function Shell() {
     <div className="flex min-h-dvh">
       <aside className="fixed inset-y-0 left-0 z-10 hidden w-[232px] flex-col border-r border-line bg-panel md:flex">
         <div className="border-b border-line px-5 py-5">
-          <div className="overline">Diligence Room</div>
-          <div className="mt-1 text-[15px] font-semibold tracking-tight text-ink1">
+          <div className="text-[15px] font-semibold tracking-tight text-ink1">
             Project Falcon
           </div>
           <div className="mt-0.5 font-mono text-[11px] text-ink4">deal-falcon · acquisition</div>
@@ -59,7 +58,6 @@ function Shell() {
       {/* Mobile top bar */}
       <header className="fixed inset-x-0 top-0 z-10 flex items-center justify-between border-b border-line bg-panel px-4 py-3 md:hidden">
         <div>
-          <div className="overline">Diligence Room</div>
           <div className="text-[14px] font-semibold text-ink1">Project Falcon</div>
         </div>
         <nav aria-label="Primary">

@@ -13,8 +13,7 @@ export default function Overview() {
     <div className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="overline">Deal room · {summary.deal_type.toLowerCase()}</div>
-          <h1 className="mt-1 text-[28px] font-medium tracking-[-0.02em] text-ink1">
+          <h1 className="text-[28px] font-medium tracking-[-0.02em] text-ink1">
             {summary.name}
           </h1>
           <p className="mt-1 text-[13px] text-ink3">
@@ -24,8 +23,7 @@ export default function Overview() {
           </p>
         </div>
         <div className="rounded-lg border border-line bg-card px-4 py-3 text-right">
-          <div className="overline">Deal health</div>
-          <div className="mt-1 flex items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-2">
             <span
               className={`size-2 rounded-full ${
                 summary.health_tone === "critical" ? "bg-sev-critical" : "bg-ok"
@@ -59,10 +57,10 @@ export default function Overview() {
         <SectionHeader title="Workstreams" meta="document coverage and finding counts" />
         <div className="overflow-hidden rounded-lg border border-line bg-card">
           <div className="hidden grid-cols-[140px_1fr_120px_64px] gap-4 border-b border-line px-4 py-2.5 md:grid">
-            <span className="overline">Workstream</span>
-            <span className="overline">Progress</span>
-            <span className="overline text-right">Docs / findings</span>
-            <span className="overline text-right">%</span>
+            <span className="text-[12px] font-medium text-ink3">Workstream</span>
+            <span className="text-[12px] font-medium text-ink3">Progress</span>
+            <span className="text-[12px] font-medium text-ink3 text-right">Docs / findings</span>
+            <span className="text-[12px] font-medium text-ink3 text-right">%</span>
           </div>
           <ul>
             {workstreams.map((ws) => (
