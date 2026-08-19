@@ -135,3 +135,64 @@ class TestDocuments:
             ).status_code
             == 404
         )
+
+
+class TestRoleFilter:
+    _ALL_FINDING_IDS = {
+        "SYN-001",
+        "LEGAL-014",
+        "FIN-007",
+        "IP-009",
+        "REG-005",
+        "RE-004",
+        "HR-003",
+        "TAX-002",
+        "ESG-001",
+        "LEGAL-021",
+        "IP-002",
+    }
+
+    def _finding_ids(self, role: str | None = None) -> set[str]:
+        params = {"role": role} if role is not None else {}
+        res = _CLIENT.get("/api/findings", params=params)
+        assert res.status_code == 200
+        return {f["finding_id"] for f in res.json()}
+
+    def test_default_role_sees_everything(self) -> None:
+        assert self._finding_ids() == self._ALL_FINDING_IDS
+
+    def test_deal_lead_sees_everything(self) -> None:
+        assert self._finding_ids("deal_lead") == self._ALL_FINDING_IDS
+
+    def test_junior_legal_sees_only_legal_findings(self) -> None:
+        assert self._finding_ids("junior_legal") == {"SYN-001", "LEGAL-014", "LEGAL-021"}
+
+    def test_junior_legal_cannot_open_a_finance_finding(self) -> None:
+        # Zero-trust: a hidden finding is indistinguishable from a missing one.
+        res = _CLIENT.get("/api/findings/FIN-007", params={"role": "junior_legal"})
+        assert res.status_code == 404
+
+    def test_hr_analyst_sees_only_hr_findings(self) -> None:
+        assert self._finding_ids("hr_analyst") == {"HR-003"}
+
+    def test_outside_counsel_sees_only_approved_legal_materials(self) -> None:
+        # SYN-001 is legal but still open -> not approved for external eyes.
+        assert self._finding_ids("outside_counsel") == {"LEGAL-014", "LEGAL-021"}
+
+    def test_inbox_is_role_filtered(self) -> None:
+        def inbox(role: str) -> list[dict[str, object]]:
+            res = _CLIENT.get("/api/deal", params={"role": role})
+            assert res.status_code == 200
+            body: dict[str, object] = res.json()
+            entries = body["inbox"]
+            assert isinstance(entries, list)
+            return entries
+
+        assert {e["finding_id"] for e in inbox("deal_lead")} == {"SYN-001", "LEGAL-014"}
+        assert {e["finding_id"] for e in inbox("junior_legal")} == {"SYN-001", "LEGAL-014"}
+        # Open escalations are not approved-for-external material; HR scope excludes legal.
+        assert inbox("outside_counsel") == []
+        assert inbox("hr_analyst") == []
+
+    def test_unknown_role_is_rejected(self) -> None:
+        assert _CLIENT.get("/api/findings", params={"role": "intern"}).status_code == 422

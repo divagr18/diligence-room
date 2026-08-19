@@ -16,6 +16,8 @@ Day 11 work.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -28,6 +30,19 @@ from dashboard.api.models import (
     FindingListItem,
     SecurityBundle,
 )
+from identity.human_authz import Role, can_view
+from memory.findings import FindingStatus
+from registry.models import Workstream
+
+
+@dataclass(frozen=True, slots=True)
+class _ViewableRow:
+    workstream: Workstream
+    status: FindingStatus
+
+
+def _visible(role: Role, workstream: str, status: str) -> bool:
+    return can_view(role, _ViewableRow(Workstream(workstream), FindingStatus(status)))
 
 
 def create_app() -> FastAPI:
@@ -44,17 +59,25 @@ def create_app() -> FastAPI:
         return {"status": "ok", "deal": data.DEAL_ID}
 
     @app.get("/api/deal", response_model=DealBundle)
-    def deal() -> DealBundle:
-        return data.build_deal_bundle()
+    def deal(role: Role = Role.DEAL_LEAD) -> DealBundle:
+        bundle = data.build_deal_bundle()
+        return DealBundle(
+            summary=bundle.summary,
+            workstreams=bundle.workstreams,
+            inbox=[
+                entry for entry in bundle.inbox if _visible(role, entry.workstream, entry.status)
+            ],
+        )
 
     @app.get("/api/findings", response_model=list[FindingListItem])
-    def findings() -> list[FindingListItem]:
-        return data.build_findings()
+    def findings(role: Role = Role.DEAL_LEAD) -> list[FindingListItem]:
+        items = data.build_findings()
+        return [item for item in items if _visible(role, item.workstream, item.status)]
 
     @app.get("/api/findings/{finding_id}", response_model=FindingDetail)
-    def finding_detail(finding_id: str) -> FindingDetail:
+    def finding_detail(finding_id: str, role: Role = Role.DEAL_LEAD) -> FindingDetail:
         detail = data.build_finding_detail(finding_id)
-        if detail is None:
+        if detail is None or not _visible(role, detail.workstream, detail.status):
             raise HTTPException(status_code=404, detail=f"finding {finding_id!r} not found")
         return detail
 
