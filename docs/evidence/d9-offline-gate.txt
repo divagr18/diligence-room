@@ -60,7 +60,7 @@ the event log itself is the durable, auditable checkpoint store.
 5. GATE ITEM D - negotiation behind a human approval gate (D9-M4)
 ====================================================================
 $ uv run pytest tests/test_negotiation.py -q
-20 passed in 4.53s
+10 passed in 4.54s
 
 Vision S11: draft generation is confidence-gated (refused below the 0.75
 candidate threshold) and state-machine-bound: draft -> pending_approval ->
