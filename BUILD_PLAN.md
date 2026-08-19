@@ -302,6 +302,14 @@ diligence-room/
 
 ## Day 8 — Fri 08-21 · Coordinator + red-flag engine
 
+> **Progress note (pulled forward, end of Day 7):** D8-M4 dashboard backend APIs
+> (read-only demo data plane, `b9e85f7`) and D11-M1 + D11-M4..M7 web shell (four
+> views; Deal Room Ledger design contract + executable contract QA) were delivered
+> early. The document viewer (vision §15.2 — finding evidence opens the served
+> source at the located PDF page / XLSX sheet+row) was delivered in the Day-7
+> finalise (`a02eb0a`, `130fb1a`, `dc68a23`; receipt `docs/evidence/finalise-day7.txt`).
+> D8-M1..M3 plus D8-M4 role filtering are built below.
+
 **Objective:** the **keystone** — CRITICAL finding emerges *only* from multi-agent synthesis; dashboard APIs serve it.
 
 ### Phase 1 — Scoring + human AuthZ (h 0:00–2:30)

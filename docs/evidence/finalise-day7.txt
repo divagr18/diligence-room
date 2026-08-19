@@ -1,0 +1,76 @@
+DAY 7 FINALISE RECEIPT (BUILD_PLAN closeout, pre-Day-8)
+Executed (UTC): 2026-08-20
+Scope: finalise the acme_robotics -> vantage_robotics / Customer X -> Meridian
+Logistics rebrand; deliver the dashboard document viewer; prove the quality
+battery + design-contract QA green before Day 8 (coordinator keystone) begins.
+
+====================================================================
+1. QUALITY BATTERY (full suite, emulator-backed)
+====================================================================
+$ uv run pytest tests/ -q
+736 passed, 2 warnings in 20.09s
+
+$ uv run mypy .
+Success: no issues found in 156 source files
+
+$ uv run ruff check .
+All checks passed!
+$ uv run ruff format --check .
+168 files already formatted
+
+====================================================================
+2. REBRAND FINALISED (a02eb0a)
+====================================================================
+- data/acme_robotics -> data/vantage_robotics (11 authored artifacts);
+  contract_customer_x.pdf -> contract_meridian_logistics.pdf;
+  hr_roster_acme.xlsx -> hr_roster_vantage.xlsx; DATASET_PLAN re-titled.
+- Customer X -> Meridian Logistics, Inc. across the demo data plane, fleet
+  seed paths, live-gate scripts, runtime workspace, provisioning/layout
+  docs, BUILD_PLAN/README alignment, and the test suite.
+- Every authored-doc evidence span still resolves byte-for-byte after the
+  rename: documents.locate_evidence returns a page / sheet+row for all 12
+  authored-evidence items (pdf + xlsx all resolved).
+- Historical artifacts untouched by policy: docs/evidence/*,
+  docs/decisions/*, diligence-room-vision.md.
+
+====================================================================
+3. DOCUMENT VIEWER (130fb1a) + LEDGER TYPOGRAPHY (dc68a23)
+====================================================================
+- dashboard/api/documents.py: path-traversal-guarded serving + evidence
+  locator (pypdf page walk / openpyxl sheet+row walk, reusing the ingestion
+  parser extraction so write-time-verified spans are guaranteed to resolve).
+- DocumentViewer modal: PDF embed jumps to #page=N; XLSX renders the located
+  sheet with the located row highlighted + scrolled into view; wired into the
+  FindingDetail evidence cards. --color-overlay dialog token added to
+  dashboard/web/src/index.css (DESIGN.md S2).
+- End-to-end QA (Playwright against /findings/SYN-001): 10/10 checks PASS:
+  PDF locator "page 2 of 2" with object src #page=2; XLSX locator
+  "FY27 Projected Revenue / row 2"; exactly one highlighted row and it is
+  the Meridian evidence row; modal closes on Escape.
+- qa-contract.mjs (5 routes x 3 viewports): ALL DESIGN-CONTRACT CHECKS PASS
+  (gradients, palette, card-radius, page-overflow, placeholder, fonts, content).
+- dc68a23 de-overlines the four views: stat tiles / red-team scorecards lead
+  with tabular-mono values, labels follow; .overline utility removed.
+
+====================================================================
+4. HONEST STAND-INS (carried forward, disclosed)
+====================================================================
+- FakeSentinel remains the offline sentinel (Gemma not executed live;
+  disclosed since Day 4, docs/decisions/gemma-serving.md).
+- Live windows (fleet / Model Armor / gateway) remain flag-gated and were
+  NOT executed for this receipt (offline-only, zero live spend).
+- Dashboard API serves the authored demo data plane; the Firestore-backed
+  repository swaps in on the Day-11 deploy.
+- Quarantined (hostile) documents are intentionally NOT openable in the
+  viewer: the security posture is never-route / never-read.
+
+====================================================================
+5. DAY-7 FINALISE COMMITS (this receipt)
+====================================================================
+a02eb0a feat(data): rebrand dataset acme_robotics -> vantage_robotics, Customer X -> Meridian Logistics
+130fb1a feat(dashboard): document viewer - open evidence at located page/row
+dc68a23 feat(dashboard): value-first ledger typography across the four views
+
+VERDICT: PASS - tree finalised: suite green, battery clean, design contract
+green, document viewer verified end-to-end. Day 8 (coordinator keystone)
+unblocked.
