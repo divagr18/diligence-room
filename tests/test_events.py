@@ -39,6 +39,7 @@ class TestEventType:
             "run.bounds_exceeded",
             "evidence.rejected",
             "runner.checkpoint",
+            "negotiation.transition",
         }
 
 
