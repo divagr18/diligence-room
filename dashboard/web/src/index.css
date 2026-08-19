@@ -13,6 +13,7 @@
   --color-panel: #101011;
   --color-card: #161718;
   --color-card2: #1e1f21;
+  --color-overlay: rgba(0, 0, 0, 0.8);
 
   --color-line: rgba(255, 255, 255, 0.06);
   --color-line2: rgba(255, 255, 255, 0.1);

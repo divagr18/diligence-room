@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-import { api, fmtPct, fmtTime, useAsync, WORKSTREAM_LABEL } from "../api";
+import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
+import { api, fmtPct, fmtTime, useAsync, WORKSTREAM_LABEL, type EvidenceItem } from "../api";
+import DocumentViewer from "../components/DocumentViewer";
 import {
   Card,
   ErrorState,
@@ -14,7 +16,7 @@ import {
 function MetaItem({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="overline">{label}</div>
+      <div className="text-[12px] font-medium text-ink3">{label}</div>
       <div className="mt-1.5 text-[13px] text-ink2">{children}</div>
     </div>
   );
@@ -23,6 +25,7 @@ function MetaItem({ label, children }: { label: string; children: React.ReactNod
 export default function FindingDetail() {
   const { findingId = "" } = useParams();
   const { data, error, loading } = useAsync(() => api.finding(findingId), [findingId]);
+  const [openEvidence, setOpenEvidence] = useState<EvidenceItem | null>(null);
 
   if (loading) return <LoadingState label={`finding ${findingId}`} />;
   if (error || !data) return <ErrorState error={error ?? "no data"} />;
@@ -53,22 +56,22 @@ export default function FindingDetail() {
 
       <section className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-line bg-card px-4 py-3">
-          <div className="overline">Confidence</div>
-          <div className="tabular mt-1.5 font-mono text-[22px] font-medium text-ink1">
+          <div className="tabular font-mono text-[22px] font-medium text-ink1">
             {fmtPct(data.confidence)}
           </div>
+          <div className="mt-2 text-[12px] font-medium text-ink3">Confidence</div>
         </div>
         <div className="rounded-lg border border-line bg-card px-4 py-3">
-          <div className="overline">Source documents</div>
-          <div className="tabular mt-1.5 font-mono text-[22px] font-medium text-ink1">
+          <div className="tabular font-mono text-[22px] font-medium text-ink1">
             {data.source_documents.length}
           </div>
+          <div className="mt-2 text-[12px] font-medium text-ink3">Source documents</div>
         </div>
         <div className="rounded-lg border border-line bg-card px-4 py-3">
-          <div className="overline">Contributing agents</div>
-          <div className="tabular mt-1.5 font-mono text-[22px] font-medium text-ink1">
+          <div className="tabular font-mono text-[22px] font-medium text-ink1">
             {data.contributing_agents.length}
           </div>
+          <div className="mt-2 text-[12px] font-medium text-ink3">Contributing agents</div>
         </div>
       </section>
 
@@ -91,11 +94,26 @@ export default function FindingDetail() {
                   “{ev.verbatim_span}”
                 </blockquote>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <Tag>{ev.document_id}</Tag>
+                  <button
+                    type="button"
+                    onClick={() => setOpenEvidence(ev)}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-line bg-card px-1.5 py-px font-mono text-[12px] text-ink2 transition-colors duration-150 hover:bg-card2 hover:text-ink1"
+                  >
+                    <FileText className="size-3" strokeWidth={1.75} aria-hidden />
+                    {ev.document_id}
+                  </button>
                   {ev.chunk_ref ? <Tag>{ev.chunk_ref}</Tag> : null}
                   <span className="font-mono text-[11px] text-ink4">
                     span verified against parsed source
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setOpenEvidence(ev)}
+                    className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-line bg-card px-2.5 py-1 text-[12px] font-medium text-ink2 transition-colors duration-150 hover:bg-card2 hover:text-ink1"
+                  >
+                    <ExternalLink className="size-3.5" strokeWidth={1.75} aria-hidden />
+                    Open source
+                  </button>
                 </div>
               </Card>
             ))}
@@ -185,6 +203,10 @@ export default function FindingDetail() {
           )}
         </Card>
       </section>
+
+      {openEvidence && (
+        <DocumentViewer evidence={openEvidence} onClose={() => setOpenEvidence(null)} />
+      )}
     </div>
   );
 }

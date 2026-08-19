@@ -16,10 +16,11 @@ Day 11 work.
 
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
-from dashboard.api import data
+from dashboard.api import data, documents
 from dashboard.api.models import (
     AgentOut,
     DealBundle,
@@ -64,6 +65,20 @@ def create_app() -> FastAPI:
     @app.get("/api/registry", response_model=list[AgentOut])
     def registry() -> list[AgentOut]:
         return data.build_agents()
+
+    @app.get("/api/documents/{document_id}")
+    def document_file(document_id: str) -> FileResponse:
+        path = documents.resolve_document_path(document_id)
+        if path is None:
+            raise HTTPException(status_code=404, detail=f"document {document_id!r} not found")
+        return FileResponse(path)
+
+    @app.get("/api/documents/{document_id}/locate")
+    def document_locate(document_id: str, span: str = Query(default="")) -> dict[str, object]:
+        locator = documents.locate_evidence(document_id, span)
+        if locator is None:
+            raise HTTPException(status_code=404, detail=f"document {document_id!r} not found")
+        return locator
 
     return app
 

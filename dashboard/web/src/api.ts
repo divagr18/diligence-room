@@ -123,6 +123,31 @@ export interface AgentOut {
   capabilities: string[];
 }
 
+/* Document locators — GET /api/documents/{id}/locate. The backend reuses the
+   ingestion parser's extraction, so a span already verified against the parsed
+   text is guaranteed to resolve to a page (PDF) or sheet+row (XLSX). */
+export interface PdfLocator {
+  kind: "pdf";
+  page: number | null;
+  page_count: number;
+}
+
+export interface XlsxLocator {
+  kind: "xlsx";
+  sheet: string | null;
+  row_index: number | null;
+  headers: string[];
+  rows: string[][];
+}
+
+export interface OtherLocator {
+  kind: string;
+  page: null;
+  page_count: null;
+}
+
+export type DocumentLocator = PdfLocator | XlsxLocator | OtherLocator;
+
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(path);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${path}`);
@@ -135,7 +160,16 @@ export const api = {
   finding: (id: string) => fetchJson<FindingDetail>(`/api/findings/${encodeURIComponent(id)}`),
   security: () => fetchJson<SecurityBundle>("/api/security"),
   registry: () => fetchJson<AgentOut[]>("/api/registry"),
+  locate: (documentId: string, span: string) =>
+    fetchJson<DocumentLocator>(
+      `/api/documents/${encodeURIComponent(documentId)}/locate?span=${encodeURIComponent(span)}`,
+    ),
 };
+
+/* Served-file URL for the document viewer (GET /api/documents/{id}). */
+export function documentUrl(documentId: string): string {
+  return `/api/documents/${encodeURIComponent(documentId)}`;
+}
 
 export function useAsync<T>(fn: () => Promise<T>, deps: readonly unknown[] = []) {
   const [state, setState] = useState<{ data?: T; error?: string; loading: boolean }>({

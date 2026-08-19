@@ -6,6 +6,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from dashboard.api.app import create_app
+from dashboard.api.data import _COC_SPAN, _FIN_CUSTOMER_ROW
 
 _CLIENT = TestClient(create_app())
 
@@ -77,3 +78,60 @@ class TestRegistry:
         assert all(a["approved"] for a in agents)
         assert all(a["deployment_status"] == "deployed" for a in agents)
         assert all(a["model_id"] == "gemini-3.5-flash" for a in agents)
+
+
+class TestDocuments:
+    def test_serve_pdf_returns_pdf_media_type(self) -> None:
+        res = _CLIENT.get("/api/documents/contract_meridian_logistics.pdf")
+        assert res.status_code == 200
+        assert res.headers["content-type"].startswith("application/pdf")
+
+    def test_locate_pdf_evidence_span(self) -> None:
+        res = _CLIENT.get(
+            "/api/documents/contract_meridian_logistics.pdf/locate",
+            params={"span": _COC_SPAN},
+        )
+        assert res.status_code == 200
+        locator = res.json()
+        assert locator["kind"] == "pdf"
+        assert locator["page_count"] == 2
+        assert locator["page"] is not None and 1 <= locator["page"] <= locator["page_count"]
+
+    def test_locate_xlsx_evidence_span(self) -> None:
+        res = _CLIENT.get(
+            "/api/documents/financials_fy27.xlsx/locate",
+            params={"span": _FIN_CUSTOMER_ROW},
+        )
+        assert res.status_code == 200
+        locator = res.json()
+        assert locator["kind"] == "xlsx"
+        assert locator["sheet"] == "FY27 Projected Revenue"
+        assert locator["row_index"] == 1
+        assert locator["headers"]
+        assert locator["rows"]
+        located_row = locator["rows"][locator["row_index"]]
+        assert "Meridian Logistics, Inc." in located_row
+        assert "0.183" in located_row
+
+    def test_xlsx_header_is_first_row(self) -> None:
+        locator = _CLIENT.get(
+            "/api/documents/financials_fy27.xlsx/locate",
+            params={"span": _FIN_CUSTOMER_ROW},
+        ).json()
+        assert locator["rows"][0] == locator["headers"]
+
+    def test_unknown_document_returns_404(self) -> None:
+        assert _CLIENT.get("/api/documents/no_such_doc.pdf").status_code == 404
+        assert (
+            _CLIENT.get("/api/documents/no_such_doc.pdf/locate", params={"span": "x"}).status_code
+            == 404
+        )
+
+    def test_path_traversal_is_rejected(self) -> None:
+        # The resolver must never serve a file that escapes the data room.
+        assert (
+            _CLIENT.get(
+                "/api/documents/%2e%2e%2f%2e%2e%2ftests%2ftest_dashboard_api.py"
+            ).status_code
+            == 404
+        )
