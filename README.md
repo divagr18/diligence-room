@@ -134,6 +134,23 @@ offline screening rides the deterministic project-rules layer. Evidence:
 `docs/evidence/d7-redteam.txt`, `docs/evidence/d7-offline-gate.txt`,
 `docs/evidence/d7-live-armor.txt`.
 
+## Runbook (Dashboard — Executive Deal Room web shell, pulled forward from Day 11)
+
+| Step | Command | Expected |
+|---|---|---|
+| Backend API tests | `uv run pytest tests/test_dashboard_api.py` | deal / findings / security / registry endpoints serve the Project Falcon dataset |
+| Backend API | `uv run uvicorn dashboard.api.app:app --port 8040` | `/api/health` -> `{"status":"ok","deal":"deal-falcon"}` |
+| Frontend dev server | `cd dashboard/web && npm install && npm run dev` | Vite on `:5173`, proxies `/api` -> `:8040` |
+| Design-contract QA | `cd dashboard/web && node qa-contract.mjs` (with dev server running) | every DESIGN.md rule passes: no gradients, palette + card-radius discipline, no page overflow, no placeholders, fonts loaded, real content |
+| Production build | `cd dashboard/web && npm run build` | `dist/` bundle builds clean |
+
+Four views per vision §15: **Overview** (deal health + KPIs + workstream progress +
+escalation inbox), **Findings** (+ detail with evidence spans, contributing agents, and the
+audit trace timeline), **Security** (quarantined documents + security feed + red-team
+scorecard), and **Registry** (8 agents with version/approval/eval). The design contract is
+`dashboard/web/DESIGN.md`; the demo dataset is authored in `dashboard/api/data.py` and the
+Firestore-backed repository swaps in on the Day-11 deploy.
+
 ## Security posture (Day-1 guardrails)
 
 - **No service-account keys are created anywhere in this project.** All tooling authenticates with

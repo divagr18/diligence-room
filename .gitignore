@@ -32,3 +32,8 @@ Thumbs.db
 
 # Agent Engine local scratch (deployed resource state IS committed - see infra/deploy/)
 .agent-engine-scratch/
+
+# Dashboard web (Vite)
+dashboard/web/node_modules/
+dashboard/web/dist/
+dashboard/web/.qa/

@@ -1,0 +1,79 @@
+"""Dashboard API tests (BUILD_PLAN D8-M4 data plane, pulled early for the
+Day-11 web shell; vision §15 four views)."""
+
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+
+from dashboard.api.app import create_app
+
+_CLIENT = TestClient(create_app())
+
+SEVERITIES = {"critical", "high", "medium", "low", "informational"}
+WORKSTREAMS = {"legal", "finance", "hr", "ip_tech", "tax", "regulatory", "esg", "real_estate"}
+
+
+class TestHealthAndDeal:
+    def test_health_reports_deal(self) -> None:
+        body = _CLIENT.get("/api/health").json()
+        assert body == {"status": "ok", "deal": "deal-falcon"}
+
+    def test_deal_bundle_shape(self) -> None:
+        res = _CLIENT.get("/api/deal")
+        assert res.status_code == 200
+        body = res.json()
+        summary = body["summary"]
+        assert summary["name"] == "Project Falcon"
+        assert summary["health"] == "HIGH RISK"
+        assert summary["critical_findings"] >= 1
+        assert len(body["workstreams"]) == 8
+        assert {ws["workstream"] for ws in body["workstreams"]} == WORKSTREAMS
+        assert all(0 <= ws["progress"] <= 100 for ws in body["workstreams"])
+        assert body["inbox"], "critical findings must surface in the inbox"
+
+
+class TestFindings:
+    def test_findings_list_is_severity_consistent(self) -> None:
+        res = _CLIENT.get("/api/findings")
+        assert res.status_code == 200
+        findings = res.json()
+        assert len(findings) >= 10
+        assert {f["severity"] for f in findings} <= SEVERITIES
+        assert {f["workstream"] for f in findings} <= WORKSTREAMS
+        assert all(0.0 <= f["confidence"] <= 1.0 for f in findings)
+
+    def test_finding_detail_carries_evidence_and_trace(self) -> None:
+        res = _CLIENT.get("/api/findings/SYN-001")
+        assert res.status_code == 200
+        detail = res.json()
+        assert detail["severity"] == "critical"
+        assert detail["evidence"], "detail must carry evidence spans"
+        assert all(ev["verbatim_span"].strip() for ev in detail["evidence"])
+        assert detail["trace"], "keystone finding must carry a trace"
+        assert any(step["stage"] == "finding.escalated" for step in detail["trace"])
+
+    def test_unknown_finding_returns_404(self) -> None:
+        assert _CLIENT.get("/api/findings/NOPE-999").status_code == 404
+
+
+class TestSecurity:
+    def test_security_bundle_matches_red_team_ledger(self) -> None:
+        body = _CLIENT.get("/api/security").json()
+        assert body["total_blocked"] == len(body["quarantined"]) == 10
+        layers = {q["layer"] for q in body["quarantined"]}
+        assert layers == {"sentinel_tripwire", "model_armor"}
+        assert all(q["reason_codes"] for q in body["quarantined"])
+        blocked = sum(g["blocked"] for g in body["scorecard"])
+        total = sum(g["total"] for g in body["scorecard"])
+        assert blocked == total == 10
+        assert body["feed"], "security feed must not be empty"
+
+
+class TestRegistry:
+    def test_registry_lists_eight_approved_agents(self) -> None:
+        agents = _CLIENT.get("/api/registry").json()
+        assert len(agents) == 8
+        assert {a["workstream"] for a in agents} == WORKSTREAMS
+        assert all(a["approved"] for a in agents)
+        assert all(a["deployment_status"] == "deployed" for a in agents)
+        assert all(a["model_id"] == "gemini-3.5-flash" for a in agents)

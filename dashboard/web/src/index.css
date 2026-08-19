@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+/* DESIGN.md §2-4 tokens — Deal Room Ledger (Linear-adapted, warm-neutral). */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-base: #0a0a0b;
+  --color-panel: #101011;
+  --color-card: #161718;
+  --color-card2: #1e1f21;
+
+  --color-line: rgba(255, 255, 255, 0.06);
+  --color-line2: rgba(255, 255, 255, 0.1);
+  --color-line3: rgba(255, 255, 255, 0.16);
+
+  --color-ink1: #f4f4f2;
+  --color-ink2: #c8c8c4;
+  --color-ink3: #95948e;
+  --color-ink4: #6d6c66;
+
+  --color-sev-critical: #f2605a;
+  --color-sev-high: #ef9d4f;
+  --color-sev-medium: #d9b95c;
+  --color-sev-low: #6fa8dc;
+  --color-sev-info: #9aa0a6;
+
+  --color-ok: #4caf7d;
+  --color-deny: #f2605a;
+  --color-accent: #8ab0e8;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}
+
+@layer base {
+  html {
+    font-feature-settings: "cv01", "ss03";
+  }
+
+  body {
+    @apply bg-base text-ink2 font-sans antialiased;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  ::selection {
+    background: rgba(138, 176, 232, 0.25);
+    color: var(--color-ink1);
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .overline {
+    @apply text-[11px] font-medium tracking-[0.08em] uppercase text-ink4;
+  }
+}
