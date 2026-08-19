@@ -5,6 +5,10 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
+  /* DESIGN.md §3 weight ladder: 400 read / 510 emphasize / 590 announce. */
+  --font-weight-medium: 510;
+  --font-weight-semibold: 590;
+
   --color-base: #0a0a0b;
   --color-panel: #101011;
   --color-card: #161718;
