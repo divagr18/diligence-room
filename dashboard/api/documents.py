@@ -26,8 +26,15 @@ def _norm(text: str) -> str:
 
 
 def resolve_document_path(document_id: str) -> Path | None:
-    """Resolve a data-room document to a real path, or None if absent/unsafe."""
-    candidate = (DATA_ROOM / document_id).resolve()
+    """Resolve a data-room document to a real path, or None if absent/unsafe.
+
+    Names the OS refuses to resolve (NUL bytes, illegal characters) fail
+    closed to None — the route answers 404, never 500.
+    """
+    try:
+        candidate = (DATA_ROOM / document_id).resolve()
+    except (OSError, ValueError):
+        return None
     if DATA_ROOM.resolve() not in candidate.parents and candidate.parent != DATA_ROOM.resolve():
         return None
     return candidate if candidate.is_file() else None

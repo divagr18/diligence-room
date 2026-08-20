@@ -136,6 +136,13 @@ class TestDocuments:
             == 404
         )
 
+    def test_unresolvable_document_name_fails_closed(self) -> None:
+        # Names the OS refuses to resolve (NUL bytes) must 404, never 500.
+        assert _CLIENT.get("/api/documents/a%00b.pdf").status_code == 404
+        assert (
+            _CLIENT.get("/api/documents/a%00b.pdf/locate", params={"span": "x"}).status_code == 404
+        )
+
 
 class TestRoleFilter:
     _ALL_FINDING_IDS = {
