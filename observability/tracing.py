@@ -68,6 +68,20 @@ def route_span(tracer: Tracer, *, workstream: str | None) -> Iterator[Span]:
         yield span
 
 
+@contextmanager
+def stage_span(
+    tracer: Tracer | None, name: str, **attributes: str | int | float | bool
+) -> Iterator[Span | None]:
+    """Open *name* when *tracer* is present; tracer-less call sites yield None."""
+    if tracer is None:
+        yield None
+        return
+    with tracer.start_as_current_span(name) as span:
+        for key, value in attributes.items():
+            span.set_attribute(key, value)
+        yield span
+
+
 def install_in_memory_exporter(
     service_name: str = "test",
 ) -> tuple[TracerProvider, InMemorySpanExporter]:

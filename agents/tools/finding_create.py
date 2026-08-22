@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from typing import Any, Final, Protocol
 
 from google.cloud import firestore
+from opentelemetry.trace import Tracer
 
 from agents.tools.data_room_read import DocSource
 from coordination.escalation import escalate_if_critical
@@ -30,6 +31,7 @@ from memory.findings import (
     FindingStatus,
 )
 from memory.partitions import partition_collection
+from observability.tracing import stage_span
 from runtime.events import EventEnvelope, EventType, new_event
 
 _SEVERITIES = frozenset(severity.value for severity in FindingSeverity)
@@ -146,6 +148,7 @@ def make_finding_create(
     doc_source: DocSource,
     now: datetime | None = None,
     publisher: _EventPublisher | None = None,
+    tracer: Tracer | None = None,
 ) -> Any:
     """Bind the finding-create tool to *principal* (one agent, one deal)."""
     store = FindingsStore(client)
@@ -164,8 +167,19 @@ def make_finding_create(
         Returns:
             Dict with "decision" ("created" plus "finding_id", or "reject"
             plus machine-readable "reason": invalid_contract |
-            evidence_unauthorized | evidence_unresolvable | duplicate_finding).
+                    evidence_unauthorized | evidence_unresolvable | duplicate_finding).
         """
+        with stage_span(tracer, "agent.tool") as span:
+            if span is not None:
+                span.set_attribute("agent.tool", "finding_create")
+                span.set_attribute("agent.principal", principal.name)
+                span.set_attribute("agent.workstream", principal.workstream.value)
+            result = _execute(finding_json)
+            if span is not None:
+                span.set_attribute("agent.decision", str(result["decision"]))
+            return result
+
+    def _execute(finding_json: str) -> dict[str, Any]:
         try:
             payload = json.loads(finding_json)
         except ValueError:

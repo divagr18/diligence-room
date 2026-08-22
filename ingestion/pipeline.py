@@ -164,7 +164,13 @@ def ingest_blob(
     else:
         decision = context.classifier.classify(document_id, parsed.text, report.class_hint)
 
-    armor_verdict = run_armor(parsed.text, managed=context.armor)
+    if tracer is not None:
+        with tracer.start_as_current_span("armor.screen") as span:
+            armor_verdict = run_armor(parsed.text, managed=context.armor)
+            span.set_attribute("armor.blocked", armor_verdict.blocked)
+            span.set_attribute("armor.rule_count", len(armor_verdict.rule_ids))
+    else:
+        armor_verdict = run_armor(parsed.text, managed=context.armor)
     if armor_verdict.blocked:
         quarantiner.quarantine(
             deal_id,

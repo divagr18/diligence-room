@@ -15,10 +15,12 @@ from enum import StrEnum
 from typing import Any, cast
 
 from google.cloud import firestore
+from opentelemetry.trace import Tracer
 
 from gateway.policy import PolicyRule, PolicyStore, ResponseShape
 from identity.principals import Principal
 from memory.event_log import EventLog
+from observability.tracing import stage_span
 from registry.models import Workstream
 from runtime.events import EventType, new_event
 
@@ -117,9 +119,23 @@ def _consume_rate_budget(
 
 
 def decide(
-    client: firestore.Client, request: GatewayRequest, now: datetime | None = None
+    client: firestore.Client,
+    request: GatewayRequest,
+    now: datetime | None = None,
+    tracer: Tracer | None = None,
 ) -> Decision:
     """Evaluate *request*; always audits; returns the reasoned verdict."""
+    with stage_span(tracer, "gateway.decide") as span:
+        decision = _evaluate(client, request, now)
+        if span is not None:
+            span.set_attribute("gateway.verdict", decision.verdict.value)
+            span.set_attribute("gateway.reason", decision.reason.value)
+        return decision
+
+
+def _evaluate(
+    client: firestore.Client, request: GatewayRequest, now: datetime | None = None
+) -> Decision:
     stamp = now if now is not None else request.ts
 
     def _finish(verdict: Verdict, reason: DecisionReason, rule_id: str | None) -> Decision:

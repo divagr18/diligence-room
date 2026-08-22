@@ -13,10 +13,13 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
+from opentelemetry.trace import Tracer
+
 from identity.authz import AuthzDenied, Resource
 from identity.principals import Principal
 from ingestion.chunking import chunk
 from ingestion.parsing import LocalParser
+from observability.tracing import stage_span
 from runtime.dispatcher import authorized_read
 from runtime.events import EventEnvelope
 
@@ -51,7 +54,10 @@ class DatasetDocSource:
 
 
 def make_data_room_read(
-    principal: Principal, publisher: _EventPublisher, doc_source: DocSource
+    principal: Principal,
+    publisher: _EventPublisher,
+    doc_source: DocSource,
+    tracer: Tracer | None = None,
 ) -> Any:
     """Bind the data-room-read tool to *principal* (one agent, one deal)."""
 
@@ -69,6 +75,17 @@ def make_data_room_read(
             ("workstream_boundary", "cross_deal", "invalid_resource",
             "not_found").
         """
+        with stage_span(tracer, "agent.tool") as span:
+            if span is not None:
+                span.set_attribute("agent.tool", "data_room_read")
+                span.set_attribute("agent.principal", principal.name)
+                span.set_attribute("agent.workstream", principal.workstream.value)
+            result = _execute(category, name)
+            if span is not None:
+                span.set_attribute("agent.decision", str(result["decision"]))
+            return result
+
+    def _execute(category: str, name: str) -> dict[str, Any]:
         try:
             resource = Resource(
                 deal_id=principal.deal_id, workstream=None, category=category, name=name

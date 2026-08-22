@@ -26,9 +26,11 @@ from typing import Final, Protocol, cast
 
 from google.cloud import firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
+from opentelemetry.trace import Tracer
 
 from agents.tools.finding_create import EVIDENCE_CANDIDATE_THRESHOLD
 from memory.findings import Finding, FindingsStore
+from observability.tracing import stage_span
 from runtime.events import EventEnvelope, EventType, new_event
 
 _COLLECTION: Final[str] = "negotiations"
@@ -213,6 +215,7 @@ def generate_draft(
     kind: NegotiationArtifactKind,
     publisher: _Publisher | None = None,
     now: datetime | None = None,
+    tracer: Tracer | None = None,
 ) -> NegotiationDraft:
     """Generate (or return) the draft artifact for *finding_id*.
 
@@ -245,8 +248,18 @@ def generate_draft(
         created_at=stamp,
         updated_at=stamp,
     )
-    store.create(draft)
-    _emit_transition(publisher, draft, None, NegotiationState.DRAFT, actor, stamp)
+    with stage_span(
+        tracer,
+        "negotiation.transition",
+        **{
+            "negotiation.kind": kind.value,
+            "negotiation.from_state": "none",
+            "negotiation.to_state": NegotiationState.DRAFT.value,
+            "negotiation.draft_id": draft_id,
+        },
+    ):
+        store.create(draft)
+        _emit_transition(publisher, draft, None, NegotiationState.DRAFT, actor, stamp)
     return draft
 
 
@@ -258,6 +271,7 @@ def _transition(
     approver: str | None,
     publisher: _Publisher | None,
     now: datetime | None,
+    tracer: Tracer | None = None,
 ) -> NegotiationDraft:
     store = NegotiationStore(client)
     draft = store.get(deal_id, draft_id)
@@ -275,8 +289,18 @@ def _transition(
         approved_by=approver if approver is not None else draft.approved_by,
         updated_at=stamp,
     )
-    store.update(updated)
-    _emit_transition(publisher, updated, draft.state, target, actor, stamp)
+    with stage_span(
+        tracer,
+        "negotiation.transition",
+        **{
+            "negotiation.kind": draft.kind.value,
+            "negotiation.from_state": draft.state.value,
+            "negotiation.to_state": target.value,
+            "negotiation.draft_id": draft_id,
+        },
+    ):
+        store.update(updated)
+        _emit_transition(publisher, updated, draft.state, target, actor, stamp)
     return updated
 
 
@@ -286,10 +310,11 @@ def submit_for_approval(
     draft_id: str,
     publisher: _Publisher | None = None,
     now: datetime | None = None,
+    tracer: Tracer | None = None,
 ) -> NegotiationDraft:
     """draft -> pending_approval."""
     return _transition(
-        client, deal_id, draft_id, NegotiationState.PENDING_APPROVAL, None, publisher, now
+        client, deal_id, draft_id, NegotiationState.PENDING_APPROVAL, None, publisher, now, tracer
     )
 
 
@@ -300,10 +325,11 @@ def approve_draft(
     approver: str,
     publisher: _Publisher | None = None,
     now: datetime | None = None,
+    tracer: Tracer | None = None,
 ) -> NegotiationDraft:
     """pending_approval -> approved; records the approving human."""
     return _transition(
-        client, deal_id, draft_id, NegotiationState.APPROVED, approver, publisher, now
+        client, deal_id, draft_id, NegotiationState.APPROVED, approver, publisher, now, tracer
     )
 
 
@@ -313,8 +339,9 @@ def record_send(
     draft_id: str,
     publisher: _Publisher | None = None,
     now: datetime | None = None,
+    tracer: Tracer | None = None,
 ) -> NegotiationDraft:
     """approved -> send_logged; the only state from which a send may leave."""
     return _transition(
-        client, deal_id, draft_id, NegotiationState.SEND_LOGGED, None, publisher, now
+        client, deal_id, draft_id, NegotiationState.SEND_LOGGED, None, publisher, now, tracer
     )

@@ -18,10 +18,12 @@ synthesis refuses — the keystone removal-proof.
 from __future__ import annotations
 
 import hashlib
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Final, Protocol
 
 from google.cloud import firestore
+from opentelemetry.trace import Tracer
 
 from agents.tools.data_room_read import DatasetDocSource, DocSource
 from coordination.escalation import escalate_if_critical
@@ -35,6 +37,7 @@ from memory.findings import (
     FindingStatus,
 )
 from memory.partitions import partition_collection
+from observability.tracing import stage_span
 from registry.models import Workstream
 from runtime.events import EventEnvelope, EventType, new_event
 
@@ -75,12 +78,22 @@ def _convergence_entity(store: FindingsStore, deal_id: str) -> str | None:
     return min(common) if common else None
 
 
+@dataclass(frozen=True, slots=True)
+class _SynthesisOutcome:
+    """What one synthesis attempt produced (span metadata for the wrapper)."""
+
+    finding_id: str | None
+    entity: str | None
+    contributors: int
+
+
 def synthesize_critical(
     client: firestore.Client,
     deal_id: str,
     publisher: _Publisher | None = None,
     doc_source: DocSource | None = None,
     now: datetime | None = None,
+    tracer: Tracer | None = None,
 ) -> str | None:
     """Write the CRITICAL synthesis finding for *deal_id*; None when refused.
 
@@ -89,10 +102,29 @@ def synthesize_critical(
     longer resolves against its source document. A rerun returns the existing
     finding id unchanged (duplicate guard).
     """
+    with stage_span(tracer, "coordinator.synthesize") as span:
+        if span is not None:
+            span.set_attribute("coordinator.deal", deal_id)
+        outcome = _synthesize(client, deal_id, publisher, doc_source, now)
+        if span is not None:
+            span.set_attribute("coordinator.accepted", outcome.finding_id is not None)
+            if outcome.entity is not None:
+                span.set_attribute("coordinator.entity", outcome.entity)
+            span.set_attribute("coordinator.contributors", outcome.contributors)
+        return outcome.finding_id
+
+
+def _synthesize(
+    client: firestore.Client,
+    deal_id: str,
+    publisher: _Publisher | None,
+    doc_source: DocSource | None,
+    now: datetime | None,
+) -> _SynthesisOutcome:
     store = FindingsStore(client)
     entity = _convergence_entity(store, deal_id)
     if entity is None:
-        return None
+        return _SynthesisOutcome(None, None, 0)
 
     source = doc_source if doc_source is not None else DatasetDocSource()
     parser = LocalParser()
@@ -111,21 +143,21 @@ def synthesize_critical(
             key=lambda f: f.finding_id,
         )
         if not convergent:
-            return None
+            return _SynthesisOutcome(None, entity, len(contributors))
         for finding in convergent:
             contributors.append(finding)
             evidence.extend(finding.evidence)
             source_documents.extend(finding.source_documents)
 
     if not evidence:
-        return None
+        return _SynthesisOutcome(None, entity, len(contributors))
     for entry in evidence:
         blob = source.read(entry.document_id)
         if blob is None:
-            return None
+            return _SynthesisOutcome(None, entity, len(contributors))
         parsed = parser.parse(blob, entry.document_id, deal_id)
         if parsed.text is None or entry.verbatim_span not in parsed.text:
-            return None
+            return _SynthesisOutcome(None, entity, len(contributors))
 
     contributor_ids = tuple(f.finding_id for f in contributors)
     finding_id = _stable_synthesis_id(deal_id, entity, contributor_ids)
@@ -154,7 +186,7 @@ def synthesize_critical(
     try:
         store.create(finding)
     except DuplicateFindingError:
-        return finding_id
+        return _SynthesisOutcome(finding_id, entity, len(contributors))
 
     if publisher is not None:
         publisher.publish(
@@ -183,4 +215,4 @@ def synthesize_critical(
         }
     )
     escalate_if_critical(client, publisher, finding, now=stamp)
-    return finding_id
+    return _SynthesisOutcome(finding_id, entity, len(contributors))
