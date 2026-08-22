@@ -160,8 +160,14 @@ def run_workstream_offline(
     workstream: Workstream,
     doc_source: DocSource | None = None,
     now: datetime | None = None,
+    extractor: Callable[[Workstream, ParsedDoc], WorkstreamFact] | None = None,
 ) -> str:
-    """Run one deep workstream's offline finding pass; return the finding id."""
+    """Run one deep workstream's offline finding pass; return the finding id.
+
+    ``extractor`` swaps the fact producer for a candidate implementation
+    (shadow-harness runs, ``evals/harness.py``); the evidence-gated write
+    path below it is identical to the baseline.
+    """
     source = doc_source if doc_source is not None else DatasetDocSource()
     document_name = DEEP_WORKSTREAM_DOCUMENTS[workstream]
     blob = source.read(document_name)
@@ -170,7 +176,8 @@ def run_workstream_offline(
     parsed = LocalParser().parse(blob, document_name, deal_id)
     if parsed.text is None:
         raise ValueError(f"{document_name!r} needs OCR; offline producer cannot extract")
-    fact = extract_fact(workstream, parsed)
+    extract = extractor if extractor is not None else extract_fact
+    fact = extract(workstream, parsed)
     principal = principal_for(workstream, deal_id)
     tool = make_finding_create(principal, client, source, now=now)
     payload = {

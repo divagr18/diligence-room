@@ -3,8 +3,8 @@
 The golden set is the shadow-eval harness's baseline source of truth: the
 committed clean corpus — every parseable artifact under ``data/vantage_robotics``
 and ``data/scenarios`` except the injection probe — with the expected finding
-titles, affected entities, and chunk locators the offline fleet producers
-(``agents/fleet.py``) must surface for the four keystone documents. The
+titles, severities, affected entities, and chunk locators the offline fleet
+producers (``agents/fleet.py``) must surface for the four keystone documents. The
 remaining sixteen documents carry no expected findings: they are the noise and
 scaffold corpus a correct fleet must not over-report on.
 
@@ -25,6 +25,8 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Final
+
+from memory.findings import FindingSeverity
 
 _CUSTOMER_X: Final = "Meridian Logistics, Inc."
 
@@ -55,15 +57,23 @@ class GoldenDoc:
 
     doc_id: str
     expected_finding_titles: tuple[str, ...]
+    expected_severity: FindingSeverity | None
     expected_entities: tuple[str, ...]
     locators: tuple[str, ...]
     needs_ocr: bool
 
 
-def _keystone(doc_id: str, title: str, entities: tuple[str, ...], locator: str) -> GoldenDoc:
+def _keystone(
+    doc_id: str,
+    title: str,
+    severity: FindingSeverity,
+    entities: tuple[str, ...],
+    locator: str,
+) -> GoldenDoc:
     return GoldenDoc(
         doc_id=doc_id,
         expected_finding_titles=(title,),
+        expected_severity=severity,
         expected_entities=entities,
         locators=(locator,),
         needs_ocr=False,
@@ -74,6 +84,7 @@ def _bare(doc_id: str, *, needs_ocr: bool = False) -> GoldenDoc:
     return GoldenDoc(
         doc_id=doc_id,
         expected_finding_titles=(),
+        expected_severity=None,
         expected_entities=(),
         locators=(),
         needs_ocr=needs_ocr,
@@ -86,24 +97,28 @@ GOLDEN_SET: Final[tuple[GoldenDoc, ...]] = (
     _keystone(
         "contract_meridian_logistics.pdf",
         "Meridian Logistics change-of-control termination right",
+        FindingSeverity.HIGH,
         (_CUSTOMER_X,),
         COC_CLAUSE_LOCATOR,
     ),
     _keystone(
         "financials_fy27.xlsx",
         "Meridian Logistics revenue concentration",
+        FindingSeverity.MEDIUM,
         (_CUSTOMER_X,),
         f"sheet:{FY27_REVENUE_SHEET}!rows:1-7",
     ),
     _keystone(
         "hr_roster_vantage.xlsx",
         "Key-person departure: Meridian account owner",
+        FindingSeverity.MEDIUM,
         ("Dana Whitfield", _CUSTOMER_X),
         "sheet:Roster!rows:1-6",
     ),
     _keystone(
         "tech_inventory.pdf",
         "Unsupported dependency: TitanBridge 4.1 at vendor end-of-life",
+        FindingSeverity.HIGH,
         (_CUSTOMER_X,),
         "para:4",
     ),
