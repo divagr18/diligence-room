@@ -1,0 +1,28 @@
+# VPC Service Controls perimeter (BUILD_PLAN D11-M8)
+# Guarded: applied via `gcloud access-context-manager perimeters create/update`
+# with --confirm-live only; offline tests assert YAML shape and egress rules.
+perimeter: diligence-room-perimeter
+resources:
+  - projects/diligence-room
+restricted_services:
+  - storage.googleapis.com
+  - firestore.googleapis.com
+  - aiplatform.googleapis.com
+egress_rules:
+  - from:
+      identity_type: ANY_IDENTITY
+    to:
+      operations:
+        - serviceName: storage.googleapis.com
+          methodSelectors:
+            - method: google.storage.objects.get
+      resources:
+        - projects/diligence-room
+    # Allow Cloud Trace export from inside perimeter
+  - from:
+      identity_type: ANY_IDENTITY
+    to:
+      operations:
+        - serviceName: cloudtrace.googleapis.com
+          methodSelectors:
+            - method: "*"
