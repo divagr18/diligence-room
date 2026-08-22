@@ -114,3 +114,22 @@ class EventLog:
                 )
             )
         return out
+
+    def list_for_type(self, deal_id: str, event_type: str) -> list[EventRecord]:
+        return [record for record in self.events(deal_id) if record.type == event_type]
+
+
+class EventLogPublisher:
+    """Publisher adapter that persists envelopes through the canonical log.
+
+    Satisfies the ``_Publisher`` protocol wherever the runtime publishes
+    events (e.g. ``agents.negotiation.drafts``), so every transition lands
+    in ``deals/{deal_id}/events`` with the append idempotency of EventLog.
+    """
+
+    def __init__(self, event_log: EventLog) -> None:
+        self._event_log = event_log
+
+    def publish(self, event: EventEnvelope) -> str:
+        self._event_log.append(event)
+        return event.event_id

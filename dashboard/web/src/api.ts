@@ -170,9 +170,50 @@ export interface OtherLocator {
 
 export type DocumentLocator = PdfLocator | XlsxLocator | OtherLocator;
 
+export type NegotiationKind = "clause_redline" | "seller_request" | "clarification_question";
+
+export type NegotiationDraftState = "draft" | "pending_approval" | "approved" | "send_logged";
+
+export interface NegotiationDraft {
+  draft_id: string;
+  deal_id: string;
+  finding_id: string;
+  kind: NegotiationKind;
+  state: NegotiationDraftState;
+  body: string;
+  approved_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const NEGOTIATION_KIND_LABEL: Record<NegotiationKind, string> = {
+  clause_redline: "Clause redline",
+  seller_request: "Seller request",
+  clarification_question: "Clarification questions",
+};
+
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(path);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${path}`);
+  return (await res.json()) as T;
+}
+
+async function postJson<T>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText} for ${path}`;
+    try {
+      const err = (await res.json()) as { detail?: unknown };
+      if (typeof err.detail === "string") detail = err.detail;
+    } catch {
+      /* non-JSON error body: keep the status-line detail */
+    }
+    throw new Error(detail);
+  }
   return (await res.json()) as T;
 }
 
@@ -186,6 +227,18 @@ export const api = {
     fetchJson<DocumentLocator>(
       `/api/documents/${encodeURIComponent(documentId)}/locate?span=${encodeURIComponent(span)}`,
     ),
+  negotiationsFor: (findingId: string) =>
+    fetchJson<NegotiationDraft[]>(
+      `/api/negotiation?finding_id=${encodeURIComponent(findingId)}`,
+    ),
+  createNegotiationDraft: (findingId: string, kind: NegotiationKind) =>
+    postJson<NegotiationDraft>("/api/negotiation/drafts", { finding_id: findingId, kind }),
+  approveNegotiationDraft: (draftId: string, approver: string) =>
+    postJson<NegotiationDraft>(`/api/negotiation/${encodeURIComponent(draftId)}/approve`, {
+      approver,
+    }),
+  sendNegotiationDraft: (draftId: string) =>
+    postJson<NegotiationDraft>(`/api/negotiation/${encodeURIComponent(draftId)}/send`),
 };
 
 /* Served-file URL for the document viewer (GET /api/documents/{id}). */

@@ -3,17 +3,61 @@ Day-11 web shell; vision §15 four views)."""
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 from google.cloud import firestore
 
+from agents.tools.data_room_read import DatasetDocSource
+from agents.tools.finding_create import make_finding_create
 from dashboard.api.app import create_app
 from dashboard.api.data import _COC_SPAN, _FIN_CUSTOMER_ROW
+from identity.principals import principal_for
+from ingestion.chunking import chunk
+from ingestion.parsing import LocalParser
+from memory.event_log import EventLog
+from registry.models import Workstream
+from runtime.events import EventType
 
 _CLIENT = TestClient(create_app())
 
 SEVERITIES = {"critical", "high", "medium", "low", "informational"}
 WORKSTREAMS = {"legal", "finance", "hr", "ip_tech", "tax", "regulatory", "esg", "real_estate"}
+
+_DEAL = "deal-falcon"
+
+
+def _coc_span() -> str:
+    path = DatasetDocSource().read("contract_meridian_logistics.pdf")
+    assert path is not None
+    doc = LocalParser().parse(path, "contract_meridian_logistics.pdf", _DEAL)
+    return next(c.text for c in chunk(doc) if c.locator == "clause:11.3")
+
+
+def _seed_finding(client: firestore.Client, *, confidence: float = 0.9) -> str:
+    tool = make_finding_create(principal_for(Workstream.LEGAL, _DEAL), client, DatasetDocSource())
+    span = _coc_span()
+    payload = {
+        "title": "Meridian Logistics change-of-control termination right",
+        "summary": "Termination right within 90 days of a change of control.",
+        "severity": "critical",
+        "confidence": confidence,
+        "evidence": [
+            {
+                "verbatim_span": span,
+                "document_id": "contract_meridian_logistics.pdf",
+                "category": "contracts",
+                "chunk_ref": "clause:11.3",
+            }
+        ],
+        "source_documents": ["contract_meridian_logistics.pdf"],
+        "affected_entities": ["Meridian Logistics, Inc."],
+        "questions": [],
+    }
+    result = tool(finding_json=json.dumps(payload))
+    assert result["decision"] == "created", result
+    return str(result["finding_id"])
 
 
 class TestHealthAndDeal:
@@ -258,3 +302,143 @@ class TestFindingGraph:
         documents = [node["label"] for node in graph["nodes"] if node["kind"] == "document"]
         assert documents == ["contract_meridian_logistics.pdf"]
         assert any(edge["to_id"] == "finding:LEGAL-014" for edge in graph["edges"])
+
+
+class TestNegotiationEndpoints:
+    """D12-M6 full spec over HTTP: draft(approve-gated) -> approve -> send,
+    client-backed, 503 without a client, events persisted to the deal log."""
+
+    def test_endpoints_return_503_without_a_client(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("FIRESTORE_EMULATOR_HOST", raising=False)
+        client = TestClient(create_app())
+        assert (
+            client.post(
+                "/api/negotiation/drafts",
+                json={"finding_id": "any", "kind": "clause_redline"},
+            ).status_code
+            == 503
+        )
+        assert client.get("/api/negotiation", params={"finding_id": "any"}).status_code == 503
+        assert (
+            client.post(
+                "/api/negotiation/d/approve", json={"approver": "deal-lead@deal-falcon"}
+            ).status_code
+            == 503
+        )
+        assert client.post("/api/negotiation/d/send").status_code == 503
+
+    def test_full_beat_draft_approve_send(self, firestore_client: firestore.Client) -> None:
+        finding_id = _seed_finding(firestore_client, confidence=0.9)
+        client = TestClient(create_app(client=firestore_client))
+
+        res = client.post(
+            "/api/negotiation/drafts",
+            json={"finding_id": finding_id, "kind": "clause_redline"},
+        )
+        assert res.status_code == 200
+        draft = res.json()
+        assert draft["state"] == "pending_approval"
+        assert draft["kind"] == "clause_redline"
+        assert draft["finding_id"] == finding_id
+        assert f"“{_coc_span()}”" in draft["body"], "redline body must quote the evidence span"
+        assert "Meridian Logistics, Inc." in draft["body"]
+        draft_id = draft["draft_id"]
+
+        res = client.post(
+            f"/api/negotiation/{draft_id}/approve",
+            json={"approver": "deal-lead@deal-falcon"},
+        )
+        assert res.status_code == 200
+        assert res.json()["state"] == "approved"
+        assert res.json()["approved_by"] == "deal-lead@deal-falcon"
+
+        res = client.post(f"/api/negotiation/{draft_id}/send")
+        assert res.status_code == 200
+        assert res.json()["state"] == "send_logged"
+
+        rows = client.get("/api/negotiation", params={"finding_id": finding_id}).json()
+        assert {row["draft_id"] for row in rows} == {draft_id}
+
+        transitions = EventLog(firestore_client).list_for_type(
+            _DEAL, EventType.NEGOTIATION_TRANSITION.value
+        )
+        assert len(transitions) == 4
+        final = json.loads(transitions[-1].payload_json)
+        assert final["to_state"] == "send_logged"
+        assert final["draft_id"] == draft_id
+        assert final["finding_id"] == finding_id
+        assert final["kind"] == "clause_redline"
+
+    def test_draft_creation_is_idempotent(self, firestore_client: firestore.Client) -> None:
+        finding_id = _seed_finding(firestore_client, confidence=0.9)
+        client = TestClient(create_app(client=firestore_client))
+        payload = {"finding_id": finding_id, "kind": "seller_request"}
+        first = client.post("/api/negotiation/drafts", json=payload)
+        second = client.post("/api/negotiation/drafts", json=payload)
+        assert first.status_code == second.status_code == 200
+        assert first.json()["draft_id"] == second.json()["draft_id"]
+        assert second.json()["state"] == "pending_approval"
+
+    def test_low_confidence_finding_is_refused_409(
+        self, firestore_client: firestore.Client
+    ) -> None:
+        finding_id = _seed_finding(firestore_client, confidence=0.5)
+        client = TestClient(create_app(client=firestore_client))
+        res = client.post(
+            "/api/negotiation/drafts",
+            json={"finding_id": finding_id, "kind": "clause_redline"},
+        )
+        assert res.status_code == 409
+        assert "candidate threshold" in str(res.json()["detail"])
+
+    def test_unknown_finding_returns_404(self, firestore_client: firestore.Client) -> None:
+        client = TestClient(create_app(client=firestore_client))
+        res = client.post(
+            "/api/negotiation/drafts",
+            json={"finding_id": "no-such-finding", "kind": "clause_redline"},
+        )
+        assert res.status_code == 404
+
+    def test_invalid_kind_is_rejected_422(self, firestore_client: firestore.Client) -> None:
+        client = TestClient(create_app(client=firestore_client))
+        res = client.post(
+            "/api/negotiation/drafts",
+            json={"finding_id": "whatever", "kind": "counterparty_ultimatum"},
+        )
+        assert res.status_code == 422
+
+    def test_invalid_transitions_are_conflicts(self, firestore_client: firestore.Client) -> None:
+        finding_id = _seed_finding(firestore_client, confidence=0.9)
+        client = TestClient(create_app(client=firestore_client))
+        draft = client.post(
+            "/api/negotiation/drafts",
+            json={"finding_id": finding_id, "kind": "clarification_question"},
+        ).json()
+        draft_id = draft["draft_id"]
+        assert client.post(f"/api/negotiation/{draft_id}/send").status_code == 409
+        client.post(
+            f"/api/negotiation/{draft_id}/approve", json={"approver": "deal-lead@deal-falcon"}
+        )
+        assert (
+            client.post(
+                f"/api/negotiation/{draft_id}/approve", json={"approver": "deal-lead@deal-falcon"}
+            ).status_code
+            == 409
+        )
+
+    def test_transitions_on_missing_draft_return_404(
+        self, firestore_client: firestore.Client
+    ) -> None:
+        client = TestClient(create_app(client=firestore_client))
+        assert (
+            client.post(
+                "/api/negotiation/no-such-draft/approve",
+                json={"approver": "deal-lead@deal-falcon"},
+            ).status_code
+            == 404
+        )
+        assert client.post("/api/negotiation/no-such-draft/send").status_code == 404
+
+    def test_approve_requires_an_approver(self, firestore_client: firestore.Client) -> None:
+        client = TestClient(create_app(client=firestore_client))
+        assert client.post("/api/negotiation/d/approve", json={"approver": ""}).status_code == 422

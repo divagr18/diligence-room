@@ -8,7 +8,9 @@ frontend contract stays honest to the data layer.
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from agents.negotiation.drafts import NegotiationArtifactKind
 
 
 class DealSummary(BaseModel):
@@ -150,3 +152,24 @@ class DealBundle(BaseModel):
     summary: DealSummary
     workstreams: list[WorkstreamProgress]
     inbox: list[InboxEntry]
+
+
+class NegotiationDraftOut(BaseModel):
+    draft_id: str
+    deal_id: str
+    finding_id: str
+    kind: NegotiationArtifactKind
+    state: str
+    body: str
+    approved_by: str | None
+    created_at: str
+    updated_at: str
+
+
+class NegotiationDraftRequest(BaseModel):
+    finding_id: str = Field(min_length=1)
+    kind: NegotiationArtifactKind
+
+
+class ApproveRequest(BaseModel):
+    approver: str = Field(min_length=1)

@@ -10,44 +10,55 @@ leaves without human approval: the state machine is
 
 along no other edge. A send is only logged from the approved state (vision
 §11: Negotiation Agent -> Gateway -> Human Approval -> External Channel).
-This is the CUTLINE-1 minimal configuration: draft + approval gate + logged
-send; the full spec (redline templates, counterparty question banks) is the
-Day-12 target.
+D12-M6 delivers the full spec on top of that machine: kind-branched,
+deterministic templates (agents/negotiation/templates.py) render clause
+redlines, seller requests, and counterparty clarification questions from
+the finding's verified evidence; the generic header remains as fallback.
 """
 
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from collections.abc import Callable, Mapping
+from dataclasses import replace
 from datetime import UTC, datetime
-from enum import StrEnum
-from typing import Final, Protocol, cast
+from typing import Final, Protocol
 
 from google.cloud import firestore
-from google.cloud.firestore_v1.base_query import FieldFilter
 from opentelemetry.trace import Tracer
 
+from agents.negotiation.store import (
+    DraftNotFound,
+    NegotiationArtifactKind,
+    NegotiationDraft,
+    NegotiationState,
+    NegotiationStore,
+)
+from agents.negotiation.templates import (
+    render_clarification_questions,
+    render_redline,
+    render_seller_request,
+)
 from agents.tools.finding_create import EVIDENCE_CANDIDATE_THRESHOLD
 from memory.findings import Finding, FindingsStore
 from observability.tracing import stage_span
 from runtime.events import EventEnvelope, EventType, new_event
 
-_COLLECTION: Final[str] = "negotiations"
+__all__ = [
+    "DraftNotFound",
+    "DraftRefused",
+    "InvalidNegotiationTransition",
+    "NegotiationArtifactKind",
+    "NegotiationDraft",
+    "NegotiationState",
+    "NegotiationStore",
+    "approve_draft",
+    "generate_draft",
+    "record_send",
+    "submit_for_approval",
+]
+
 _NEGOTIATION_ACTOR_TEMPLATE: Final[str] = "negotiation-agent@{deal_id}"
-
-
-class NegotiationArtifactKind(StrEnum):
-    REDLINE = "clause_redline"
-    SELLER_REQUEST = "seller_request"
-    CLARIFICATION_QUESTION = "clarification_question"
-
-
-class NegotiationState(StrEnum):
-    DRAFT = "draft"
-    PENDING_APPROVAL = "pending_approval"
-    APPROVED = "approved"
-    SEND_LOGGED = "send_logged"
 
 
 _ALLOWED_NEXT: Final[Mapping[NegotiationState, NegotiationState]] = {
@@ -57,103 +68,12 @@ _ALLOWED_NEXT: Final[Mapping[NegotiationState, NegotiationState]] = {
 }
 
 
-class DraftNotFound(KeyError):
-    """Raised when a negotiation draft does not exist in Firestore."""
-
-
 class DraftRefused(Exception):
     """Raised when draft generation is refused by the confidence gate."""
 
 
 class InvalidNegotiationTransition(Exception):
     """Raised on any transition outside the approval state machine."""
-
-
-@dataclass(frozen=True, slots=True)
-class NegotiationDraft:
-    """One negotiation artifact bound to one finding."""
-
-    draft_id: str
-    deal_id: str
-    finding_id: str
-    kind: NegotiationArtifactKind
-    state: NegotiationState
-    body: str
-    approved_by: str | None
-    created_at: datetime
-    updated_at: datetime
-
-
-def _draft_to_doc(draft: NegotiationDraft) -> dict[str, object]:
-    return {
-        "draft_id": draft.draft_id,
-        "deal_id": draft.deal_id,
-        "finding_id": draft.finding_id,
-        "kind": draft.kind.value,
-        "state": draft.state.value,
-        "body": draft.body,
-        "approved_by": draft.approved_by,
-        "created_at": draft.created_at.isoformat(),
-        "updated_at": draft.updated_at.isoformat(),
-    }
-
-
-def _draft_from_doc(doc: dict[str, object]) -> NegotiationDraft:
-    raw_approved_by = doc.get("approved_by")
-    return NegotiationDraft(
-        draft_id=str(doc["draft_id"]),
-        deal_id=str(doc["deal_id"]),
-        finding_id=str(doc["finding_id"]),
-        kind=NegotiationArtifactKind(str(doc["kind"])),
-        state=NegotiationState(str(doc["state"])),
-        body=str(doc["body"]),
-        approved_by=raw_approved_by if isinstance(raw_approved_by, str) else None,
-        created_at=datetime.fromisoformat(str(doc["created_at"])),
-        updated_at=datetime.fromisoformat(str(doc["updated_at"])),
-    )
-
-
-class NegotiationStore:
-    """Firestore-backed drafts at deals/{deal_id}/negotiations/{draft_id}."""
-
-    def __init__(self, client: firestore.Client) -> None:
-        self._client = client
-
-    def _collection(self, deal_id: str) -> firestore.CollectionReference:
-        return cast(
-            firestore.CollectionReference,
-            self._client.collection("deals").document(deal_id).collection(_COLLECTION),
-        )
-
-    def create(self, draft: NegotiationDraft) -> None:
-        self._collection(draft.deal_id).document(draft.draft_id).set(_draft_to_doc(draft))
-
-    def update(self, draft: NegotiationDraft) -> None:
-        ref = self._collection(draft.deal_id).document(draft.draft_id)
-        if not ref.get().exists:
-            raise DraftNotFound(draft.draft_id)
-        ref.set(_draft_to_doc(draft))
-
-    def get(self, deal_id: str, draft_id: str) -> NegotiationDraft:
-        snapshot = self._collection(deal_id).document(draft_id).get()
-        data = snapshot.to_dict()
-        if data is None:
-            raise DraftNotFound(draft_id)
-        return _draft_from_doc(data)
-
-    def list_for_finding(self, deal_id: str, finding_id: str) -> list[NegotiationDraft]:
-        docs = (
-            self._collection(deal_id)
-            .where(filter=FieldFilter("finding_id", "==", finding_id))
-            .stream()
-        )
-        drafts: list[NegotiationDraft] = []
-        for doc in docs:
-            data = doc.to_dict()
-            if data is None:
-                continue
-            drafts.append(_draft_from_doc(data))
-        return drafts
 
 
 class _Publisher(Protocol):
@@ -165,7 +85,8 @@ def _stable_draft_id(deal_id: str, finding_id: str, kind: NegotiationArtifactKin
     return hashlib.sha256(digest_input.encode("utf-8")).hexdigest()[:12]
 
 
-def _draft_body(finding: Finding, kind: NegotiationArtifactKind) -> str:
+def _generic_draft_body(finding: Finding, kind: NegotiationArtifactKind) -> str:
+    """Header-style fallback for kinds without a dedicated template."""
     evidence_lines = tuple(
         f"- {entry.document_id}: \u201c{entry.verbatim_span}\u201d" for entry in finding.evidence
     )
@@ -178,6 +99,22 @@ def _draft_body(finding: Finding, kind: NegotiationArtifactKind) -> str:
             *evidence_lines,
         )
     )
+
+
+_RENDERERS: Final[Mapping[NegotiationArtifactKind, Callable[[Finding], str]]] = {
+    NegotiationArtifactKind.REDLINE: render_redline,
+    NegotiationArtifactKind.SELLER_REQUEST: render_seller_request,
+    NegotiationArtifactKind.CLARIFICATION_QUESTION: render_clarification_questions,
+}
+
+
+def _draft_body(finding: Finding, kind: NegotiationArtifactKind) -> str:
+    """Kind-branched body (D12-M6 full spec): dedicated templates for the
+    three known artifact kinds, generic header for any future kind."""
+    renderer = _RENDERERS.get(kind)
+    if renderer is not None:
+        return renderer(finding)
+    return _generic_draft_body(finding, kind)
 
 
 def _emit_transition(
