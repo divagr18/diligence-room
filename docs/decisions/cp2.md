@@ -46,7 +46,7 @@ with the freeze clause stated below):
    deal event log: 4 `negotiation.transition` events, final row `to_state=send_logged`.
 4. **Battery + build — GREEN.** `uv run pytest tests/ -q` 1047 passed, 2 warnings in
    26.21s; `uv run mypy .` clean in 198 source files; `uv run ruff check .` all passed;
-   `uv run ruff format --check .` 212 files formatted; `npm run build` clean.
+   `uv run ruff format --check .` 213 files formatted; `npm run build` clean.
 
 ## Deliberate regression flow (recorded, as required)
 

@@ -1,8 +1,8 @@
 # Day-12 Checkpoint 2 Gate — Versioning + Red-Team Suite (D12-M1..M7)
 # Battery: 1047 passed, 2 warnings in 26.21s — `uv run pytest tests/ -q`
 # Mypy: Success: no issues found in 198 source files — `uv run mypy .`
-# Ruff: All checks passed — `uv run ruff check .` — 212 files already formatted
-# HEAD fda0f5e (D12-M6); every command below re-run at this commit and transcribed
+# Ruff: All checks passed — `uv run ruff check .` — 213 files already formatted
+# HEAD f00623e (D12-M6+M7); every command below re-run at this commit and transcribed
 # as printed (lesson from f9ba043: counts must match what the commands actually print).
 # Environment: fresh Firestore emulator instances, fully offline and deterministic —
 # no network egress, no live LLM call (doctrine §1). Tree clean; orchestrator commits.
@@ -126,7 +126,7 @@ HTTP surface covered by tests/test_negotiation.py + tests/test_negotiation_fulls
 `uv run pytest tests/ -q` — 1047 passed, 2 warnings in 26.21s
 `uv run mypy .` — Success: no issues found in 198 source files
 `uv run ruff check .` — All checks passed!
-`uv run ruff format --check .` — 212 files already formatted
+`uv run ruff format --check .` — 213 files already formatted
 `npm --prefix dashboard/web run build` — tsc clean, built in 571ms (275.21 kB JS)
 `node qa-contract.mjs` — ALL DESIGN-CONTRACT CHECKS PASS (live shell, API on emulator)
 Rollback demo repeatable twice with identical finding counts (Gate 1).
