@@ -1,0 +1,144 @@
+# Day-12 Checkpoint 2 Gate — Versioning + Red-Team Suite (D12-M1..M7)
+# Battery: 1047 passed, 2 warnings in 26.21s — `uv run pytest tests/ -q`
+# Mypy: Success: no issues found in 198 source files — `uv run mypy .`
+# Ruff: All checks passed — `uv run ruff check .` — 212 files already formatted
+# HEAD fda0f5e (D12-M6); every command below re-run at this commit and transcribed
+# as printed (lesson from f9ba043: counts must match what the commands actually print).
+# Environment: fresh Firestore emulator instances, fully offline and deterministic —
+# no network egress, no live LLM call (doctrine §1). Tree clean; orchestrator commits.
+
+## Gate 1 — rollback demo repeatable twice, findings survive (plan §9, D12-M4)
+Command: `uv run python scripts/run_d12_rollback_evidence.py`
+Beat: seed 8 manifests → publish Legal v2.5.0 (approved=False, rollback_target=2.4.0,
+deliberate CoC-prompt regression) → harness RED → rollback → memory counts identical →
+harness GREEN. Runs twice on isolated emulator projects. Stdout verbatim:
+
+D12-M4 evidence — Legal v2.5 regression + rollback preserving memory
+offline emulator run; no network, no live LLM call
+emulator ready at 127.0.0.1:58464
+--- round 1 (project d12-m4-evidence-1) ---
+[seed]     8 manifests created; legal at 2.4.0
+[publish]  legal 2.5.0 approved=False rollback_target=2.4.0
+[RED]      harness passed=False missing=['contract_meridian_logistics.pdf']
+[memory]   findings before rollback: {'legal': 1, 'finance': 1, 'hr': 1, 'ip_tech': 1}
+[rollback] legal 2.4.0 approved=True rollback_target=2.5.0
+[memory]   findings after rollback:  {'legal': 1, 'finance': 1, 'hr': 1, 'ip_tech': 1} identical=True
+[GREEN]    harness passed=True missing=[] downgraded=0
+--- round 2 (project d12-m4-evidence-2) ---
+[seed]     8 manifests created; legal at 2.4.0
+[publish]  legal 2.5.0 approved=False rollback_target=2.4.0
+[RED]      harness passed=False missing=['contract_meridian_logistics.pdf']
+[memory]   findings before rollback: {'legal': 1, 'finance': 1, 'hr': 1, 'ip_tech': 1}
+[rollback] legal 2.4.0 approved=True rollback_target=2.5.0
+[memory]   findings after rollback:  {'legal': 1, 'finance': 1, 'hr': 1, 'ip_tech': 1} identical=True
+[GREEN]    harness passed=True missing=[] downgraded=0
+EVIDENCE OK: RED -> rollback -> GREEN twice; findings counts identical
+
+Finding counts identical before/after in BOTH rounds:
+{'legal': 1, 'finance': 1, 'hr': 1, 'ip_tech': 1} — the deals/{id}/findings/{fid}
+partition is untouched by registry rollback; the RED run's findings survive, and the
+restored 2.4.0 fleet re-runs the harness GREEN (CoC pin regenerated).
+
+## Gate 2 — scorecard renders the 20-attack results (Security view; plan §9, D12-M5)
+Security view served live: uvicorn dashboard.api.app:app on 127.0.0.1:8040 wired to the
+emulator (create_app autowires FIRESTORE_EMULATOR_HOST), Vite dev server on 127.0.0.1:5173.
+GET /api/security runs the real ledger through run_redteam — no smoothing, no demo fallback.
+Transcript of the live shell capture (stdout, markers as printed):
+
+[seed]     8 registry manifests created
+[seed]     evidence-gated finding created: 6b8ccaeb2a22 (decision=created)
+[ready]    dashboard API at http://127.0.0.1:8040/api/health
+[ready]    vite dev server at http://127.0.0.1:5173/
+[security] GET /api/security -> 200
+[security] total_blocked=20 quarantined=20
+[security]   Prompt Injection: 8/8
+[security]   Exfiltration: 5/5
+[security]   Cross-Workstream Leak: 4/4
+[security]   Tool Poisoning / Cross-Deal: 3/3
+
+20/20 blocked, groups 8/5/4/3 — matches tests/test_dashboard_api.py
+test_live_bundle_with_explicit_client (exact set assert) and tests/test_scorecard.py,
+both inside the Day-12 surface run below (158 passed).
+npm build evidence (Security.tsx compiles into the production bundle):
+
+> diligence-room-dashboard@0.1.0 build
+> tsc -b && vite build
+
+vite v8.2.1 building client environment for production...
+✓ 1810 modules transformed.
+dist/index.html                   0.80 kB │ gzip:  0.44 kB
+dist/assets/index-D3LWJ7aW.css   22.17 kB │ gzip:  5.22 kB
+dist/assets/index-CJboMfP7.js   275.21 kB │ gzip: 83.57 kB
+✓ built in 571ms
+
+qa-contract evidence (design-contract QA over the live dev shell, routes
+/, /findings, /findings/SYN-001, /security, /registry × 3 viewports):
+Command: `node qa-contract.mjs` (dashboard/web, vite --host 127.0.0.1, API live)
+ALL DESIGN-CONTRACT CHECKS PASS (gradients, palette, card-radius, page-overflow, placeholder, fonts, content)
+
+## Gate 3 — approval beat: draft → human approve → logged send (plan §9, D12-M6)
+Same live shell as Gate 2. A finding is created through the evidence-gated
+finding_create path (decision=created), then the full beat runs over HTTP exactly as the
+Finding view drives it. Event log rows read back from deals/deal-falcon/events.
+Transcript (stdout, markers as printed):
+
+[beat]     POST /api/negotiation/drafts -> 200 state=pending_approval kind=clause_redline draft_id=d24d63c407de
+[beat]     POST /api/negotiation/d24d63c407de/approve -> 200 state=approved approved_by=deal-lead@deal-falcon
+[beat]     POST /api/negotiation/d24d63c407de/send -> 200 state=send_logged
+[finding]  GET /api/negotiation?finding_id=6b8ccaeb2a22 -> 200 draft=d24d63c407de state=send_logged kind=clause_redline
+[eventlog] 4 negotiation.transition events for deal-falcon
+[eventlog]   negotiation.transition: from_state=None to_state=draft actor=negotiation-agent@deal-falcon
+[eventlog]   negotiation.transition: from_state=draft to_state=pending_approval actor=negotiation-agent@deal-falcon
+[eventlog]   negotiation.transition: from_state=pending_approval to_state=approved actor=deal-lead@deal-falcon
+[eventlog]   negotiation.transition: from_state=approved to_state=send_logged actor=negotiation-agent@deal-falcon
+
+Finding view input: GET /api/negotiation?finding_id= lists the draft at state=send_logged
+(rendered by FindingDetail). Event log carries the final to_state=send_logged; the human
+approver (deal-lead@deal-falcon) is the recorded actor on the approve transition only.
+HTTP surface covered by tests/test_negotiation.py + tests/test_negotiation_fullspec.py
++ tests/test_dashboard_api.py (30 new tests in D12-M6; 158 passed run below).
+
+## Gate 4 — keystone surfaces re-verified at HEAD (per-item test counts)
+`uv run pytest tests/test_coordinator.py -q` — 10 passed
+  Customer X CRITICAL emerges only from multi-workstream synthesis; removing any single
+  deep workstream refuses; tampered evidence span refuses.
+`uv run pytest tests/test_quarantine.py tests/test_pipeline.py -q` — 20 passed
+  Quarantine record write, lineage security_status flip, armor blocks after classify →
+  quarantine + event, never routed.
+`uv run pytest tests/test_gateway_e2e.py tests/test_gateway_decide.py tests/test_authz.py tests/test_human_authz.py -q` — 154 passed
+  DENY beat: deny-default seed, denied direct read of linked finding, role-scoped views.
+`uv run pytest tests/test_isolation.py tests/test_partitions.py -q` — 142 passed
+  Memory-isolation negative tests: cross-partition reads refused, no leakage.
+`uv run pytest tests/test_evidence_gate.py tests/test_tool_finding_create.py -q` — 21 passed
+  Evidence gate: category required, uncited claims rejected, candidate cap enforced.
+`uv run pytest tests/test_guards.py tests/test_crash_resume.py -q` — 14 passed
+  Loop guard: runaway terminated at iteration bound, partial state checkpointed,
+  run.bounds_exceeded logged; crash-resume restores from checkpoint.
+`uv run pytest tests/test_dashboard_deploy.py tests/test_cloud_run_plan.py tests/test_data_room_plan.py tests/test_registry_server.py -q` — 30 passed
+  Deployment proof (offline): Cloud Run + data-room plans shape-valid, write-only gate
+  refuses without --confirm-live; live deploys stay flag-gated per doctrine §1.
+`uv run pytest tests/test_golden_set.py tests/test_harness.py tests/test_scorecard.py tests/test_redteam_runner.py tests/test_redteam_fixtures.py tests/test_registry_rollback.py tests/test_negotiation.py tests/test_negotiation_fullspec.py tests/test_dashboard_api.py -q` — 158 passed, 1 warning in 11.93s
+  Day-12 surface: golden set 20, harness strict-exact diff (RED on Legal v2.5), ledger 20
+  with zero false positives on the clean corpus, scorecard 8/5/4/3, rollback, full-spec
+  negotiation, dashboard API.
+
+## Gates
+`uv run pytest tests/ -q` — 1047 passed, 2 warnings in 26.21s
+`uv run mypy .` — Success: no issues found in 198 source files
+`uv run ruff check .` — All checks passed!
+`uv run ruff format --check .` — 212 files already formatted
+`npm --prefix dashboard/web run build` — tsc clean, built in 571ms (275.21 kB JS)
+`node qa-contract.mjs` — ALL DESIGN-CONTRACT CHECKS PASS (live shell, API on emulator)
+Rollback demo repeatable twice with identical finding counts (Gate 1).
+Scorecard live at 20/20 blocked, 8/5/4/3, honest (Gate 2).
+Approval beat draft→approve→send_logged visible in Finding view input + event log (Gate 3).
+Tree clean (orchestrator commits after verification).
+
+Commits since f9ba043 (7): da8dbce a6d8b24 fc8bda3 187819a d5743e3 b80fb93 fda0f5e
+(noise docs for the 20-doc clean corpus → golden set → harness → ledger 20 → Legal v2.5
+rollback → scorecard → negotiation full spec).
+
+VERDICT: PASS — CP2 keystone set green item-by-item (Customer X finding, quarantine beat,
+DENY beat, isolation, evidence gate + loop guard, deployment proof); Day-12 gates all green
+offline (1047 passed, mypy 198 clean, ruff clean, npm build + qa-contract clean, rollback
+demo repeatable x2). CP2 = GO; hard-freeze clause not triggered. Day 13 unblocked.
