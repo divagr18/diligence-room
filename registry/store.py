@@ -192,6 +192,50 @@ class AgentRegistryStore:
         snap = ref.get()
         return manifest_from_doc(_require_dict(snap))
 
+    def publish_version(self, agent_id: str, version: AgentVersion) -> AgentManifest:
+        """Register *version* and point the manifest at it, unapproved.
+
+        Publishing a candidate never auto-approves it — shadow evaluation
+        gates promotion (doctrine §1). The manifest's ``rollback_target``
+        pre-declares the version the fleet returns to if the candidate
+        fails. Raises AgentNotFoundError for an unknown agent and
+        DuplicateAgentError if the version is already registered.
+        """
+        current = self.get_manifest(agent_id)
+        self.add_version(agent_id, version)
+        ref = self._agents.document(agent_id)
+        ref.update(
+            {
+                "version": version.version,
+                "approved": False,
+                "rollback_target": current.version,
+            }
+        )
+        snap = ref.get()
+        return manifest_from_doc(_require_dict(snap))
+
+    def rollback(self, agent_id: str, target_version: str) -> AgentManifest:
+        """Roll *agent_id* back to *target_version*; returns the updated manifest.
+
+        Restores the manifest's version to the known-good *target_version*,
+        re-approves it, and records the failed version it replaces in
+        ``rollback_target``. Deal memory is untouched: findings live in
+        ``deals/{id}/findings/{fid}``, outside registry versioning. Raises
+        AgentNotFoundError for an unknown agent or an unregistered target.
+        """
+        current = self.get_manifest(agent_id)
+        self.get_version(agent_id, target_version)
+        ref = self._agents.document(agent_id)
+        ref.update(
+            {
+                "version": target_version,
+                "approved": True,
+                "rollback_target": current.version,
+            }
+        )
+        snap = ref.get()
+        return manifest_from_doc(_require_dict(snap))
+
     # -- versions -----------------------------------------------------------
 
     def add_version(self, agent_id: str, version: AgentVersion) -> None:

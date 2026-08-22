@@ -16,6 +16,7 @@ Day 11 work.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from fastapi import FastAPI, HTTPException, Query
@@ -32,7 +33,7 @@ from dashboard.api.models import (
 )
 from identity.human_authz import Role, can_view
 from memory.findings import FindingStatus
-from registry.models import Workstream
+from registry.models import AgentManifest, Workstream
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,7 +46,9 @@ def _visible(role: Role, workstream: str, status: str) -> bool:
     return can_view(role, _ViewableRow(Workstream(workstream), FindingStatus(status)))
 
 
-def create_app() -> FastAPI:
+def create_app(registry_manifests: Sequence[AgentManifest] | None = None) -> FastAPI:
+    """Build the dashboard API; ``registry_manifests`` swaps the Registry view
+    onto live-store manifests (post publish/rollback) instead of the seed."""
     app = FastAPI(title="Diligence Room Dashboard API", version="0.1.0")
     app.add_middleware(
         CORSMiddleware,
@@ -87,7 +90,7 @@ def create_app() -> FastAPI:
 
     @app.get("/api/registry", response_model=list[AgentOut])
     def registry() -> list[AgentOut]:
-        return data.build_agents()
+        return data.build_agents(registry_manifests)
 
     @app.get("/api/documents/{document_id}")
     def document_file(document_id: str) -> FileResponse:

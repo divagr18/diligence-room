@@ -9,6 +9,8 @@ repository; until then it is the honest, deterministic stand-in (DESIGN.md §9).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from dashboard.api.models import (
     AgentOut,
     DealBundle,
@@ -27,6 +29,7 @@ from dashboard.api.models import (
     TraceStep,
     WorkstreamProgress,
 )
+from registry.models import AgentManifest
 from registry.seed import SEED_MANIFESTS
 
 DEAL_ID = "deal-falcon"
@@ -769,9 +772,12 @@ _INBOX = [
 ]
 
 
-def build_agents() -> list[AgentOut]:
+def build_agents(manifests: Sequence[AgentManifest] | None = None) -> list[AgentOut]:
+    """Render the registry roster; defaults to the seed manifests, or the
+    supplied live-store manifests (post publish/rollback) when given."""
+    roster = SEED_MANIFESTS if manifests is None else tuple(manifests)
     out: list[AgentOut] = []
-    for manifest in SEED_MANIFESTS:
+    for manifest in roster:
         out.append(
             AgentOut(
                 agent_id=manifest.agent_id,
