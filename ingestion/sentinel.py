@@ -81,6 +81,10 @@ _INJECTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         "exfiltration",
         re.compile(r"mailto:|curl https?://|send (this|the) (document|text|data|vault) to", re.I),
     ),
+    (
+        "encoded_injection",
+        re.compile(r"data:text/html;base64|eval\s*\(\s*atob\s*\(", re.IGNORECASE),
+    ),
 )
 
 _PII_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (

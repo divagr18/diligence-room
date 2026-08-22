@@ -1,11 +1,13 @@
-"""Red-team fixture tests (BUILD_PLAN D6-M6 batch #1, D7-M5 batch #2; scenario S9).
+"""Red-team fixture tests (BUILD_PLAN D6-M6 batch #1, D7-M5 batch #2, D10-M5 batch #3; scenario S9).
 
-Ten committed, deterministic attack fixtures across two screening layers. Batch
-#1 (injection x3, exfiltration x2) trips the sentinel tripwire BEFORE
+Fourteen committed, deterministic attack fixtures across two screening layers.
+Batch #1 (injection x3, exfiltration x2) trips the sentinel tripwire BEFORE
 classification. Batch #2 (authority forgery, cross-workstream state mutation
 and privilege escalation, tool poisoning, cross-deal probe) deliberately evades
 the sentinel and is caught by the Model Armor project-rules layer AFTER
-classification. Every fixture must be quarantined before routing; the ledger in
+classification. Batch #3 (encoded injection x2, exfiltration variant,
+privilege-escalation variant) extends the same deterministic screening.
+Every fixture must be quarantined before routing; the ledger in
 redteam/expected.yaml declares the layer and reason for each.
 """
 
@@ -65,11 +67,11 @@ def _attack_text(relative: str) -> str:
 class TestRedteamLedger:
     def test_ledger_has_ten_fixtures_across_four_plus_classes(self) -> None:
         fixtures = _expected_fixtures()
-        assert len(fixtures) == 10
+        assert len(fixtures) == 14
         classes = [fx["attack_class"] for fx in fixtures]
-        assert classes.count("injection") == 4
-        assert classes.count("exfiltration") == 2
-        assert classes.count("cross_ws") == 2
+        assert classes.count("injection") == 6
+        assert classes.count("exfiltration") == 3
+        assert classes.count("cross_ws") == 3
         assert classes.count("poisoning") == 1
         assert classes.count("cross_deal") == 1
 
@@ -84,7 +86,7 @@ class TestRedteamLedger:
     def test_fixtures_regenerate_byte_identical(self, tmp_path: Path) -> None:
         from scripts.author_redteam import _ATTACKS, write_attack
 
-        assert len(_ATTACKS) == 10
+        assert len(_ATTACKS) == 14
         for relative, body in _ATTACKS:
             regenerated = tmp_path / Path(relative).name
             write_attack(regenerated, body)
@@ -97,11 +99,11 @@ def _by_layer(layer: str) -> list[dict[str, str]]:
 
 
 class TestSentinelLayer:
-    """Batch #1: caught by the sentinel tripwire before classification."""
+    """Batch #1 + encoded variants: caught by the sentinel tripwire before classification."""
 
     def test_batch_1_fixtures_trip_the_sentinel(self) -> None:
         fixtures = _by_layer("sentinel_tripwire")
-        assert len(fixtures) == 5
+        assert len(fixtures) == 7
         for fx in fixtures:
             verdict = FakeSentinel().injection_tripwire(_attack_text(fx["path"]))
             assert verdict.tripped is True, f"{fx['path']} did not trip the sentinel"
@@ -111,7 +113,9 @@ class TestSentinelLayer:
             if fx["attack_class"] != "injection":
                 continue
             verdict = FakeSentinel().injection_tripwire(_attack_text(fx["path"]))
-            assert any("instruction" in pattern for pattern in verdict.patterns), fx["path"]
+            assert any(
+                pat in ("ignore_instructions", "encoded_injection") for pat in verdict.patterns
+            ), fx["path"]
 
     def test_batch_1_exfiltration_reports_exfiltration_pattern(self) -> None:
         for fx in _by_layer("sentinel_tripwire"):
@@ -122,11 +126,11 @@ class TestSentinelLayer:
 
 
 class TestArmorLayer:
-    """Batch #2: evades the sentinel, caught by the armor project-rules layer."""
+    """Batch #2 + variants: evades the sentinel, caught by the armor project-rules layer."""
 
     def test_batch_2_fixtures_evade_the_sentinel(self) -> None:
         fixtures = _by_layer("model_armor")
-        assert len(fixtures) == 5
+        assert len(fixtures) == 7
         for fx in fixtures:
             verdict = FakeSentinel().injection_tripwire(_attack_text(fx["path"]))
             assert verdict.tripped is False, f"{fx['path']} must evade the sentinel"
