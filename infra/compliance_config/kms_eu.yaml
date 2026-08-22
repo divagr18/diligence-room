@@ -1,0 +1,8 @@
+# KMS keyring — EU region (BUILD_PLAN D11-M3)
+# Applied via `gcloud kms keys create` + `gcloud firestore databases update --kms-key-name`
+# + `gsutil kms encryption -k` (guarded, --confirm-live only)
+keyring: diligence-room-eu
+location: europe-west1
+key: deal-falcon-primary
+rotation_days: 90
+purpose: CMEK for deal-falcon Firestore + Storage (EU)
