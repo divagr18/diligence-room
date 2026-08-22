@@ -7,9 +7,11 @@ quote them verbatim.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 
+import pytest
 from openpyxl import load_workbook
 from pypdf import PdfReader
 
@@ -17,9 +19,14 @@ from scripts.author_dataset import (
     MERIDIAN_REVENUE,
     TOTAL_REVENUE,
     write_amendment_2030,
+    write_board_minutes_q2,
     write_contract_meridian_logistics,
+    write_facilities_inspection,
     write_financials_fy27,
     write_hr_roster,
+    write_insurance_certificate,
+    write_it_incident_log,
+    write_meeting_notes_ops_sync,
     write_scanned_invoice,
     write_tech_inventory,
     write_vendor_agreement_2027,
@@ -229,6 +236,14 @@ class TestRegenerationDeterminism:
         write_hr_roster(regenerated)
         assert regenerated.read_bytes() == HR_ROSTER_XLSX.read_bytes()
 
+    def test_noise_docs_regenerate_byte_identical(self, tmp_path: Path) -> None:
+        for name, writer in NOISE_DOC_WRITERS.items():
+            regenerated = tmp_path / name
+            writer(regenerated)
+            assert regenerated.read_bytes() == (DATA_DIR / name).read_bytes(), (
+                f"{name} regeneration not byte-identical"
+            )
+
 
 AMENDMENT_PDF = DATA_DIR / "amendment_2030.pdf"
 
@@ -293,6 +308,58 @@ class TestScaffoldDocs:
             "lease_meridian.pdf": write_lease_meridian,
         }
         for name, writer in writers.items():
+            regenerated = tmp_path / name
+            writer(regenerated)
+            assert regenerated.read_bytes() == (DATA_DIR / name).read_bytes(), (
+                f"{name} regeneration not byte-identical"
+            )
+
+
+NOISE_DOCS: dict[str, tuple[str, ...]] = {
+    "board_minutes_q2.pdf": ("Board of Directors", "capital plan", "adjourned"),
+    "insurance_certificate.pdf": (
+        "general liability",
+        "workers compensation",
+        "cyber liability",
+    ),
+    "it_incident_log.pdf": ("INC-2417", "INC-2456", "Mean time to recovery"),
+    "meeting_notes_ops_sync.pdf": (
+        "biweekly operations",
+        "Fleet availability",
+        "Action Items",
+    ),
+    "facilities_inspection.pdf": (
+        "Fire and Life Safety",
+        "dock levelers",
+        "material deficiencies",
+    ),
+}
+
+NOISE_DOC_WRITERS: dict[str, Callable[[Path], None]] = {
+    "board_minutes_q2.pdf": write_board_minutes_q2,
+    "insurance_certificate.pdf": write_insurance_certificate,
+    "it_incident_log.pdf": write_it_incident_log,
+    "meeting_notes_ops_sync.pdf": write_meeting_notes_ops_sync,
+    "facilities_inspection.pdf": write_facilities_inspection,
+}
+
+
+class TestNoiseDocs:
+    """D12-M1 prep noise docs: benign business prose, zero armor-rule hits."""
+
+    @pytest.mark.parametrize("name", sorted(NOISE_DOCS))
+    def test_noise_doc_markers_present(self, name: str) -> None:
+        text = _normalized_pdf_text(DATA_DIR / name)
+        for marker in NOISE_DOCS[name]:
+            assert marker in text, f"{name} missing marker {marker!r}"
+
+    def test_noise_docs_contain_no_lorem(self) -> None:
+        for name in NOISE_DOCS:
+            text = _normalized_pdf_text(DATA_DIR / name).lower()
+            assert "lorem" not in text, f"{name} contains lorem filler text"
+
+    def test_noise_docs_regenerate_byte_identical(self, tmp_path: Path) -> None:
+        for name, writer in NOISE_DOC_WRITERS.items():
             regenerated = tmp_path / name
             writer(regenerated)
             assert regenerated.read_bytes() == (DATA_DIR / name).read_bytes(), (

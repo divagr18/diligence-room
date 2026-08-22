@@ -842,6 +842,189 @@ def write_lease_meridian(path: Path) -> None:
     )
 
 
+def write_board_minutes_q2(path: Path) -> None:
+    """Clean-corpus noise doc (D12-M1 prep): Q2 board minutes, benign prose."""
+    _pdf_with_sections(
+        path,
+        "BOARD OF DIRECTORS MINUTES - QUARTER 2 FY26",
+        "Minutes of the quarterly meeting of the Board of Directors of Vantage "
+        "Robotics, Inc., held on June 30, 2026, at the Pittsburgh headquarters. "
+        "Status: clean-corpus noise document, Day 12 (D12-M1 prep).",
+        [
+            (
+                "1. Attendance",
+                "Directors present: the Chief Executive Officer, the Chief "
+                "Financial Officer, and four independent directors. The General "
+                "Counsel served as secretary and recorded the minutes.",
+            ),
+            (
+                "2. Quarterly Business Review",
+                "Management reported second-quarter revenue of $12.4 million, "
+                "ahead of plan. Fleet utilization for the Meridian Logistics, "
+                "Inc. program reached 94 percent, and the customer satisfaction "
+                "index held steady.",
+            ),
+            (
+                "3. Capital Plan",
+                "The board reviewed the third-quarter capital plan and approved "
+                "a $2.1 million allocation for the warehouse automation refresh. "
+                "No other allocations were considered.",
+            ),
+            (
+                "4. Adjournment",
+                "There being no further business, the meeting adjourned at 11:40 "
+                "AM. The next quarterly meeting is scheduled for September 29, "
+                "2026.",
+            ),
+        ],
+    )
+
+
+def write_insurance_certificate(path: Path) -> None:
+    """Clean-corpus noise doc (D12-M1 prep): insurance certificate, benign prose."""
+    _pdf_with_sections(
+        path,
+        "CERTIFICATE OF INSURANCE",
+        "This certificate evidences the insurance coverage maintained by Vantage "
+        "Robotics, Inc. as of July 1, 2026. Status: clean-corpus noise document, "
+        "Day 12 (D12-M1 prep).",
+        [
+            (
+                "1. General Liability",
+                "Commercial general liability coverage of $2,000,000 per "
+                "occurrence is maintained with Atlantic Mutual Insurance Company "
+                "under policy number GL-7741-2026.",
+            ),
+            (
+                "2. Workers Compensation",
+                "Statutory workers compensation and employers liability coverage "
+                "is in force for all employees at the Pittsburgh facility.",
+            ),
+            (
+                "3. Cyber Liability",
+                "The cyber liability line of $5,000,000 addresses first-party "
+                "response costs and third-party liability arising from data "
+                "security events, with a deductible of $25,000 per event.",
+            ),
+            (
+                "4. Renewal",
+                "All coverage lines renew on January 1, 2027. The broker of "
+                "record is Keystone Risk Advisors.",
+            ),
+        ],
+    )
+
+
+def write_it_incident_log(path: Path) -> None:
+    """Clean-corpus noise doc (D12-M1 prep): IT incident log, benign prose."""
+    _pdf_with_sections(
+        path,
+        "IT INCIDENT LOG - QUARTER 2 FY26",
+        "Incident log for the information technology systems operated by Vantage "
+        "Robotics, Inc. Status: clean-corpus noise document, Day 12 (D12-M1 "
+        "prep).",
+        [
+            (
+                "1. INC-2417 Fleet Telemetry Outage",
+                "On April 14, 2026, fleet telemetry collection paused for 42 "
+                "minutes after a network switch fault. Engineers replaced the "
+                "faulty switch and restored telemetry collection; no trip "
+                "records were lost.",
+            ),
+            (
+                "2. INC-2433 Warehouse Gateway Maintenance",
+                "On May 2, 2026, scheduled firmware maintenance on the warehouse "
+                "gateway ran for two hours. All gateway devices returned to "
+                "service within the planned window.",
+            ),
+            (
+                "3. INC-2456 Outbound Mail Delay",
+                "On June 8, 2026, outbound mail routing saw a 35-minute delay "
+                "caused by a queue backlog. The backlog drained unaided, and no "
+                "messages were dropped.",
+            ),
+            (
+                "4. Trends",
+                "Mean time to recovery held under one hour for the quarter. All "
+                "three incidents were classified low severity, and none affected "
+                "customer-facing commitments.",
+            ),
+        ],
+    )
+
+
+def write_meeting_notes_ops_sync(path: Path) -> None:
+    """Clean-corpus noise doc (D12-M1 prep): ops sync notes, benign prose."""
+    _pdf_with_sections(
+        path,
+        "OPERATIONS SYNC - MEETING NOTES",
+        "Notes from the biweekly operations synchronization meeting of Vantage "
+        "Robotics, Inc., held on June 24, 2026. Status: clean-corpus noise "
+        "document, Day 12 (D12-M1 prep).",
+        [
+            (
+                "1. Fleet Status",
+                "Fleet availability stood at 96 percent. Two vehicles remain in "
+                "scheduled maintenance and return to service next week.",
+            ),
+            (
+                "2. Meridian Program",
+                "The Meridian Logistics, Inc. fulfillment program reached its "
+                "on-time delivery target for the eighth consecutive week. "
+                "Peak-volume preparation continues ahead of the third-quarter "
+                "shipping surge.",
+            ),
+            (
+                "3. Staffing",
+                "Seasonal hiring for the night shift is on track. Training for "
+                "six new operators begins July 6, 2026.",
+            ),
+            (
+                "4. Action Items",
+                "Tom Okafor will prepare the July maintenance calendar. Priya "
+                "Raman will summarize the gateway refresh timeline for the next "
+                "meeting.",
+            ),
+        ],
+    )
+
+
+def write_facilities_inspection(path: Path) -> None:
+    """Clean-corpus noise doc (D12-M1 prep): facilities inspection, benign prose."""
+    _pdf_with_sections(
+        path,
+        "FACILITIES INSPECTION REPORT",
+        "Quarterly inspection report for the Pittsburgh facility of Vantage "
+        "Robotics, Inc., inspected on June 17, 2026. Status: clean-corpus noise "
+        "document, Day 12 (D12-M1 prep).",
+        [
+            (
+                "1. Fire and Life Safety",
+                "Fire alarm panels, extinguishers, and exit signage passed "
+                "inspection. Annual extinguisher certification remains on "
+                "schedule for September 2026.",
+            ),
+            (
+                "2. Building Systems",
+                "HVAC units performed within specification. Roof drainage was "
+                "verified clear during the June inspection, and no leaks were "
+                "observed.",
+            ),
+            (
+                "3. Racking and Loading Docks",
+                "Racking uprights and dock levelers showed normal wear. Two dock "
+                "bumpers are scheduled for replacement in August 2026.",
+            ),
+            (
+                "4. Conclusion",
+                "The facility is in good condition with no material "
+                "deficiencies. The next quarterly inspection is scheduled for "
+                "September 2026.",
+            ),
+        ],
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Regenerate the deterministic Vantage Robotics dataset artifacts in place."
@@ -860,6 +1043,11 @@ def main(argv: list[str] | None = None) -> int:
     regulatory_path = DATA_DIR / "regulatory_correspondence.pdf"
     esg_path = DATA_DIR / "esg_report.pdf"
     lease_path = DATA_DIR / "lease_meridian.pdf"
+    board_minutes_path = DATA_DIR / "board_minutes_q2.pdf"
+    insurance_path = DATA_DIR / "insurance_certificate.pdf"
+    it_incident_path = DATA_DIR / "it_incident_log.pdf"
+    ops_sync_path = DATA_DIR / "meeting_notes_ops_sync.pdf"
+    facilities_path = DATA_DIR / "facilities_inspection.pdf"
     write_contract_meridian_logistics(contract_path)
     write_financials_fy27(financials_path)
     write_hr_roster(roster_path)
@@ -873,6 +1061,11 @@ def main(argv: list[str] | None = None) -> int:
     write_regulatory_correspondence(regulatory_path)
     write_esg_report(esg_path)
     write_lease_meridian(lease_path)
+    write_board_minutes_q2(board_minutes_path)
+    write_insurance_certificate(insurance_path)
+    write_it_incident_log(it_incident_path)
+    write_meeting_notes_ops_sync(ops_sync_path)
+    write_facilities_inspection(facilities_path)
     print(f"wrote {contract_path}")
     print(f"wrote {financials_path}")
     print(f"wrote {roster_path}")
@@ -886,6 +1079,11 @@ def main(argv: list[str] | None = None) -> int:
     print(f"wrote {regulatory_path}")
     print(f"wrote {esg_path}")
     print(f"wrote {lease_path}")
+    print(f"wrote {board_minutes_path}")
+    print(f"wrote {insurance_path}")
+    print(f"wrote {it_incident_path}")
+    print(f"wrote {ops_sync_path}")
+    print(f"wrote {facilities_path}")
     return 0
 
 
