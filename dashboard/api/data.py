@@ -11,6 +11,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from google.cloud import firestore
+
+from armor.quarantine import QuarantineStore
 from dashboard.api.models import (
     AgentOut,
     DealBundle,
@@ -29,6 +32,8 @@ from dashboard.api.models import (
     TraceStep,
     WorkstreamProgress,
 )
+from redteam.runner import attack_class_of
+from redteam.scorecard import GROUP_LABELS, build_scorecard
 from registry.models import AgentManifest
 from registry.seed import SEED_MANIFESTS
 
@@ -825,10 +830,39 @@ def build_finding_detail(finding_id: str) -> FindingDetail | None:
     return None
 
 
-def build_security_bundle() -> SecurityBundle:
+def build_security_bundle(client: firestore.Client | None = None) -> SecurityBundle:
+    """Build the Security view bundle.
+
+    Without a client the authored Project Falcon demo data is served (the
+    DESIGN.md §9 stand-in). With a Firestore client the scorecard aggregates a
+    real red-team run and the quarantine list reads the deal's quarantine
+    store — honest numbers, no smoothing.
+    """
+    if client is None:
+        return SecurityBundle(
+            quarantined=list(_QUARANTINE),
+            feed=list(_FEED),
+            scorecard=list(_SCORECARD),
+            total_blocked=len(_QUARANTINE),
+        )
+    scorecard = build_scorecard(client, deal_id=DEAL_ID)
+    quarantined = [
+        QuarantineItem(
+            document_id=record.document_id,
+            layer=record.layer,
+            reason_codes=list(record.reason_codes),
+            rule_ids=list(record.rule_ids),
+            attack_class=attack_class_of(record.document_id) or "unknown",
+            ts=record.ts.isoformat(),
+        )
+        for record in QuarantineStore(client).list_quarantined(DEAL_ID)
+    ]
     return SecurityBundle(
-        quarantined=list(_QUARANTINE),
+        quarantined=quarantined,
         feed=list(_FEED),
-        scorecard=list(_SCORECARD),
-        total_blocked=len(_QUARANTINE),
+        scorecard=[
+            ScorecardGroup(group=GROUP_LABELS[group], blocked=blocked_count, total=group_total)
+            for group, (blocked_count, group_total) in scorecard.groups.items()
+        ],
+        total_blocked=scorecard.total[0],
     )

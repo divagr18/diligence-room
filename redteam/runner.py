@@ -175,6 +175,20 @@ def run_redteam(
     return RedteamReport(rows=tuple(rows), deal_id=deal_id)
 
 
+def attack_class_of(document_id: str) -> str | None:
+    """Recover the ledger attack class from a document id, if it is a fixture.
+
+    Runs register documents as ``rt-{nonce}__{path}`` with ``/`` flattened to
+    ``_``; documents outside the ledger (e.g. dataset files quarantined by the
+    same store) yield ``None``.
+    """
+    flattened = document_id.split("__", 1)[-1]
+    for attack_class in _GROUP_BY_CLASS:
+        if flattened.startswith(f"{attack_class}_"):
+            return attack_class
+    return None
+
+
 def render_report(report: RedteamReport) -> str:
     """Render fixture rows plus the §13 scorecard board."""
     lines = [

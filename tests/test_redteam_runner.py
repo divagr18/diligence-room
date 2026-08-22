@@ -12,7 +12,14 @@ from __future__ import annotations
 import pytest
 from google.cloud import firestore
 
-from redteam.runner import RedteamReport, RedteamRow, main, render_report, run_redteam
+from redteam.runner import (
+    RedteamReport,
+    RedteamRow,
+    attack_class_of,
+    main,
+    render_report,
+    run_redteam,
+)
 
 
 class TestRunnerRows:
@@ -99,3 +106,22 @@ class TestRunnerCli:
             main([])
         captured = capsys.readouterr()
         assert "emulator" in (captured.err + captured.out).lower()
+
+
+class TestAttackClassOf:
+    def test_recovers_every_ledger_class_from_run_document_ids(self) -> None:
+        cases = {
+            "rt-abc12345__injection_direct_a.pdf": "injection",
+            "rt-abc12345__injection_obfuscated_a.pdf": "injection",
+            "rt-abc12345__exfiltration_a.pdf": "exfiltration",
+            "rt-abc12345__cross_ws_state_mutation_a.pdf": "cross_ws",
+            "rt-abc12345__cross_deal_cross_deal_probe_a.pdf": "cross_deal",
+            "rt-abc12345__poisoning_tool_poisoning_a.pdf": "poisoning",
+        }
+        for document_id, expected in cases.items():
+            assert attack_class_of(document_id) == expected, document_id
+
+    def test_non_ledger_documents_yield_none(self) -> None:
+        assert attack_class_of("contract_meridian_logistics.pdf") is None
+        assert attack_class_of("rt-abc12345__memo_fleet_operations.docx") is None
+        assert attack_class_of("") is None

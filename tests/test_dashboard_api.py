@@ -3,7 +3,9 @@ Day-11 web shell; vision §15 four views)."""
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
+from google.cloud import firestore
 
 from dashboard.api.app import create_app
 from dashboard.api.data import _COC_SPAN, _FIN_CUSTOMER_ROW
@@ -58,8 +60,9 @@ class TestFindings:
 
 
 class TestSecurity:
-    def test_security_bundle_matches_red_team_ledger(self) -> None:
-        body = _CLIENT.get("/api/security").json()
+    def test_demo_bundle_when_no_client_is_wired(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("FIRESTORE_EMULATOR_HOST", raising=False)
+        body = TestClient(create_app()).get("/api/security").json()
         assert body["total_blocked"] == len(body["quarantined"]) == 10
         layers = {q["layer"] for q in body["quarantined"]}
         assert layers == {"sentinel_tripwire", "model_armor"}
@@ -68,6 +71,33 @@ class TestSecurity:
         total = sum(g["total"] for g in body["scorecard"])
         assert blocked == total == 10
         assert body["feed"], "security feed must not be empty"
+
+    def test_live_bundle_with_explicit_client(self, firestore_client: firestore.Client) -> None:
+        body = TestClient(create_app(client=firestore_client)).get("/api/security").json()
+        assert body["total_blocked"] == 20
+        assert len(body["quarantined"]) == 20
+        assert {(g["group"], g["blocked"], g["total"]) for g in body["scorecard"]} == {
+            ("Prompt Injection", 8, 8),
+            ("Exfiltration", 5, 5),
+            ("Cross-Workstream Leak", 4, 4),
+            ("Tool Poisoning / Cross-Deal", 3, 3),
+        }
+        layers = {q["layer"] for q in body["quarantined"]}
+        assert layers == {"sentinel_tripwire", "model_armor"}
+        assert {q["attack_class"] for q in body["quarantined"]} == {
+            "injection",
+            "exfiltration",
+            "cross_ws",
+            "poisoning",
+            "cross_deal",
+        }
+
+    def test_emulator_env_autowires_a_client(self, firestore_emulator: str) -> None:
+        # conftest sets FIRESTORE_EMULATOR_HOST for the fixture's lifetime;
+        # create_app() must build the emulator client itself.
+        body = TestClient(create_app()).get("/api/security").json()
+        assert body["total_blocked"] == 20
+        assert len(body["quarantined"]) >= 20
 
 
 class TestRegistry:

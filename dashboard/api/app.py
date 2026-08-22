@@ -16,12 +16,14 @@ Day 11 work.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from google.cloud import firestore
 
 from dashboard.api import data, documents
 from dashboard.api.models import (
@@ -46,9 +48,21 @@ def _visible(role: Role, workstream: str, status: str) -> bool:
     return can_view(role, _ViewableRow(Workstream(workstream), FindingStatus(status)))
 
 
-def create_app(registry_manifests: Sequence[AgentManifest] | None = None) -> FastAPI:
+def create_app(
+    registry_manifests: Sequence[AgentManifest] | None = None,
+    client: firestore.Client | None = None,
+) -> FastAPI:
     """Build the dashboard API; ``registry_manifests`` swaps the Registry view
-    onto live-store manifests (post publish/rollback) instead of the seed."""
+    onto live-store manifests (post publish/rollback) instead of the seed, and
+    ``client`` swaps the Security view onto live red-team tallies instead of
+    the demo data. When ``FIRESTORE_EMULATOR_HOST`` is set and no client is
+    supplied, an emulator client is built so the dev shell serves live
+    numbers; without either, the no-client demo shell stays green."""
+    live_client = client
+    if live_client is None and os.environ.get("FIRESTORE_EMULATOR_HOST"):
+        live_client = firestore.Client(
+            project=os.environ.get("GOOGLE_CLOUD_PROJECT", "diligence-room")
+        )
     app = FastAPI(title="Diligence Room Dashboard API", version="0.1.0")
     app.add_middleware(
         CORSMiddleware,
@@ -86,7 +100,7 @@ def create_app(registry_manifests: Sequence[AgentManifest] | None = None) -> Fas
 
     @app.get("/api/security", response_model=SecurityBundle)
     def security() -> SecurityBundle:
-        return data.build_security_bundle()
+        return data.build_security_bundle(live_client)
 
     @app.get("/api/registry", response_model=list[AgentOut])
     def registry() -> list[AgentOut]:
