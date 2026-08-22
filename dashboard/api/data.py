@@ -15,12 +15,15 @@ from dashboard.api.models import (
     DealSummary,
     EvidenceItem,
     FindingDetail,
+    FindingGraph,
     FindingListItem,
     InboxEntry,
     QuarantineItem,
     ScorecardGroup,
     SecurityBundle,
     SecurityFeedItem,
+    TraceEdge,
+    TraceNode,
     TraceStep,
     WorkstreamProgress,
 )
@@ -70,6 +73,106 @@ def _ev(span: str, doc: str, ref: str | None = None) -> EvidenceItem:
 
 def _step(ts: str, stage: str, actor: str, detail: str) -> TraceStep:
     return TraceStep(ts=ts, stage=stage, actor=actor, detail=detail)
+
+
+def _node(kind: str, node_id: str, label: str, detail: str) -> TraceNode:
+    return TraceNode(kind=kind, node_id=node_id, label=label, detail=detail)
+
+
+def _edge(from_id: str, to_id: str, label: str) -> TraceEdge:
+    return TraceEdge(from_id=from_id, to_id=to_id, label=label)
+
+
+def _default_graph(finding: FindingDetail) -> FindingGraph:
+    """Doc -> agent -> finding chain derived from the finding's own fields."""
+    documents = sorted({entry.document_id for entry in finding.evidence}) or sorted(
+        finding.source_documents
+    )
+    agents = finding.contributing_agents or [finding.owner]
+    nodes: list[TraceNode] = [
+        _node("document", f"doc:{doc}", doc, "source document") for doc in documents
+    ]
+    nodes.extend(_node("agent", f"agent:{agent}", agent, "contributing agent") for agent in agents)
+    nodes.append(
+        _node("finding", f"finding:{finding.finding_id}", finding.finding_id, finding.title)
+    )
+    edges: list[TraceEdge] = [
+        _edge(f"doc:{doc}", f"agent:{agent}", "read") for doc in documents for agent in agents
+    ]
+    edges.extend(
+        _edge(f"agent:{agent}", f"finding:{finding.finding_id}", "reported") for agent in agents
+    )
+    return FindingGraph(finding_id=finding.finding_id, nodes=nodes, edges=edges)
+
+
+_SYNTHESIS_GRAPH = FindingGraph(
+    finding_id="SYN-001",
+    nodes=[
+        _node(
+            "document",
+            "doc:contract_meridian_logistics.pdf",
+            "contract_meridian_logistics.pdf",
+            "Change-of-control termination right (clause 11.3)",
+        ),
+        _node(
+            "document",
+            "doc:financials_fy27.xlsx",
+            "financials_fy27.xlsx",
+            "Meridian Logistics = 18.3% of projected FY27 revenue",
+        ),
+        _node(
+            "document",
+            "doc:hr_roster_vantage.xlsx",
+            "hr_roster_vantage.xlsx",
+            "Account owner departure inside the transition window",
+        ),
+        _node(
+            "document",
+            "doc:tech_inventory.pdf",
+            "tech_inventory.pdf",
+            "Platform dependency on an end-of-life vendor component",
+        ),
+        _node("agent", "agent:legal-agent@deal-falcon", "legal-agent", "CoC clause flagged"),
+        _node(
+            "agent", "agent:finance-agent@deal-falcon", "finance-agent", "concentration computed"
+        ),
+        _node("agent", "agent:hr-agent@deal-falcon", "hr-agent", "key-person risk flagged"),
+        _node(
+            "agent", "agent:ip_tech-agent@deal-falcon", "ip_tech-agent", "dependency risk flagged"
+        ),
+        _node(
+            "gateway",
+            "gateway:revenue_concentration",
+            "Gateway query · revenue_concentration",
+            "aggregate_permitted → 18.3% FY27 exposure",
+        ),
+        _node(
+            "finding",
+            "finding:SYN-001",
+            "SYN-001",
+            "Compound customer-exit exposure threatens deal economics",
+        ),
+        _node(
+            "escalation",
+            "escalation:SYN-001",
+            "Deal-lead inbox",
+            "critical escalation · open",
+        ),
+    ],
+    edges=[
+        _edge("doc:contract_meridian_logistics.pdf", "agent:legal-agent@deal-falcon", "read"),
+        _edge("doc:financials_fy27.xlsx", "agent:finance-agent@deal-falcon", "read"),
+        _edge("doc:hr_roster_vantage.xlsx", "agent:hr-agent@deal-falcon", "read"),
+        _edge("doc:tech_inventory.pdf", "agent:ip_tech-agent@deal-falcon", "read"),
+        _edge("agent:legal-agent@deal-falcon", "gateway:revenue_concentration", "ask_agent"),
+        _edge("gateway:revenue_concentration", "finding:SYN-001", "18.3% exposure"),
+        _edge("agent:legal-agent@deal-falcon", "finding:SYN-001", "converged"),
+        _edge("agent:finance-agent@deal-falcon", "finding:SYN-001", "converged"),
+        _edge("agent:hr-agent@deal-falcon", "finding:SYN-001", "converged"),
+        _edge("agent:ip_tech-agent@deal-falcon", "finding:SYN-001", "converged"),
+        _edge("finding:SYN-001", "escalation:SYN-001", "escalated"),
+    ],
+)
 
 
 def _finding(
@@ -711,7 +814,8 @@ def build_findings() -> list[FindingListItem]:
 def build_finding_detail(finding_id: str) -> FindingDetail | None:
     for f in _FINDINGS:
         if f.finding_id == finding_id:
-            return f
+            graph = _SYNTHESIS_GRAPH if f.finding_id == "SYN-001" else _default_graph(f)
+            return f.model_copy(update={"graph": graph})
     return None
 
 

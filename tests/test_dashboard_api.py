@@ -203,3 +203,28 @@ class TestRoleFilter:
 
     def test_unknown_role_is_rejected(self) -> None:
         assert _CLIENT.get("/api/findings", params={"role": "intern"}).status_code == 422
+
+
+class TestFindingGraph:
+    def test_synthesis_graph_carries_the_full_chain(self) -> None:
+        detail = _CLIENT.get("/api/findings/SYN-001").json()
+        graph = detail["graph"]
+        assert graph is not None
+        assert graph["finding_id"] == "SYN-001"
+        kinds = {node["kind"] for node in graph["nodes"]}
+        assert kinds == {"document", "agent", "gateway", "finding", "escalation"}
+        node_ids = {node["node_id"] for node in graph["nodes"]}
+        assert "finding:SYN-001" in node_ids
+        for edge in graph["edges"]:
+            assert edge["from_id"] in node_ids
+            assert edge["to_id"] in node_ids
+
+    def test_regular_findings_get_a_source_chain_graph(self) -> None:
+        detail = _CLIENT.get("/api/findings/LEGAL-014").json()
+        graph = detail["graph"]
+        assert graph is not None
+        kinds = {node["kind"] for node in graph["nodes"]}
+        assert kinds == {"document", "agent", "finding"}
+        documents = [node["label"] for node in graph["nodes"] if node["kind"] == "document"]
+        assert documents == ["contract_meridian_logistics.pdf"]
+        assert any(edge["to_id"] == "finding:LEGAL-014" for edge in graph["edges"])

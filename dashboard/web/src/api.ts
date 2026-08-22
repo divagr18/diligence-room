@@ -69,6 +69,27 @@ export interface TraceStep {
   detail: string;
 }
 
+export type TraceNodeKind = "document" | "agent" | "gateway" | "finding" | "escalation";
+
+export interface TraceNode {
+  kind: TraceNodeKind;
+  node_id: string;
+  label: string;
+  detail: string;
+}
+
+export interface TraceEdge {
+  from_id: string;
+  to_id: string;
+  label: string;
+}
+
+export interface FindingGraph {
+  finding_id: string;
+  nodes: TraceNode[];
+  edges: TraceEdge[];
+}
+
 export interface FindingDetail extends FindingListItem {
   summary: string;
   evidence: EvidenceItem[];
@@ -78,6 +99,7 @@ export interface FindingDetail extends FindingListItem {
   related_findings: string[];
   questions: string[];
   trace: TraceStep[];
+  graph: FindingGraph | null;
 }
 
 export interface QuarantineItem {

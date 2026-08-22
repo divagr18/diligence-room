@@ -48,6 +48,25 @@ class TraceStep(BaseModel):
     detail: str
 
 
+class TraceNode(BaseModel):
+    kind: str
+    node_id: str
+    label: str
+    detail: str
+
+
+class TraceEdge(BaseModel):
+    from_id: str
+    to_id: str
+    label: str
+
+
+class FindingGraph(BaseModel):
+    finding_id: str
+    nodes: list[TraceNode]
+    edges: list[TraceEdge]
+
+
 class FindingListItem(BaseModel):
     finding_id: str
     title: str
@@ -70,6 +89,7 @@ class FindingDetail(FindingListItem):
     related_findings: list[str]
     questions: list[str]
     trace: list[TraceStep]
+    graph: FindingGraph | None = None
 
 
 class QuarantineItem(BaseModel):

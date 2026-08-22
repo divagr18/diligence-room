@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
-import { api, fmtPct, fmtTime, useAsync, WORKSTREAM_LABEL, type EvidenceItem } from "../api";
+import { ArrowLeft, Bot, ExternalLink, FileText, Flag, Inbox, Network } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  api,
+  fmtPct,
+  fmtTime,
+  useAsync,
+  WORKSTREAM_LABEL,
+  type EvidenceItem,
+  type TraceNodeKind,
+} from "../api";
 import DocumentViewer from "../components/DocumentViewer";
 import {
   Card,
@@ -12,6 +21,14 @@ import {
   StatusPill,
   Tag,
 } from "../components/ui";
+
+const GRAPH_ICONS: Record<TraceNodeKind, LucideIcon> = {
+  document: FileText,
+  agent: Bot,
+  gateway: Network,
+  finding: Flag,
+  escalation: Inbox,
+};
 
 function MetaItem({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -177,6 +194,41 @@ export default function FindingDetail() {
           </Card>
         </div>
       </section>
+
+      {data.graph && (
+        <section className="space-y-4">
+          <SectionHeader title="Finding graph" meta="source docs → agents → gateway → finding" />
+          <Card className="px-5 py-5">
+            <ol className="relative space-y-4 border-l border-line pl-5">
+              {data.graph.nodes.map((node) => {
+                const Icon = GRAPH_ICONS[node.kind];
+                return (
+                  <li key={node.node_id} className="relative">
+                    <span
+                      className="absolute top-1 -left-[26.5px] size-2 rounded-full border border-line3 bg-card2"
+                      aria-hidden
+                    />
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <Icon className="size-3.5 shrink-0 text-ink3" strokeWidth={1.7} aria-hidden />
+                      <span className="font-mono text-[12px] font-medium text-ink1">{node.label}</span>
+                      <Tag>{node.kind}</Tag>
+                    </div>
+                    <p className="mt-0.5 text-[13px] text-ink2">{node.detail}</p>
+                  </li>
+                );
+              })}
+            </ol>
+            <div className="mt-4 space-y-1 border-t border-line pt-3">
+              {data.graph.edges.map((edge, i) => (
+                <div key={i} className="font-mono text-[11px] text-ink4">
+                  {edge.from_id} <span className="text-ink3">→</span> {edge.to_id}
+                  <span className="text-ink3"> · {edge.label}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </section>
+      )}
 
       <section className="space-y-4">
         <SectionHeader title="Trace" meta="audit trail: document → agents → gateway → finding" />
