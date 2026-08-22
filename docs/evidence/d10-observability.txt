@@ -1,7 +1,7 @@
 # Day-10 Offline Gate — Observability (D10-M1..M5 + trace linking + graph)
 # Battery: 911 passed, 2 warnings in 22.05s — `uv run pytest tests/ -q`
-# Mypy: Success: no issues found in 175 source files — `uv run mypy .`
-# Ruff: All checks passed — `uv run ruff check .` — 188 files already formatted
+# Mypy: Success: no issues found in 176 source files — `uv run mypy .`
+# Ruff: All checks passed — `uv run ruff check .` — 189 files already formatted
 
 ## Wave 1 — D10-M1 OTel backbone (observability/otel.py)
 ServiceName per fleet component + lazy Cloud Trace seam via BatchSpanProcessor.
@@ -66,9 +66,9 @@ Result per plan: built-guarded + offline proof is the gate. No retries (spend di
 
 ## Gates
 `uv run pytest tests/ -q` — 911 passed
-`uv run mypy .` — Success: no issues found in 175 source files
+`uv run mypy .` — Success: no issues found in 176 source files
 `uv run ruff check .` — All checks passed
-`uv run ruff format --check .` — 188 files already formatted
+`uv run ruff format --check .` — 189 files already formatted
 `npm run build` — dist generated, tsc clean
 `node qa-contract.mjs` — ALL PASS
 redteam 14/14 blocked + dataset 0 false positives + finding-graph served
