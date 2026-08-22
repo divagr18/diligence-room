@@ -21,7 +21,7 @@ from armor.model_armor import ModelArmorModel, run_armor
 from armor.quarantine import QuarantineStore
 from ingestion.chunking import chunk
 from ingestion.classifier import Classifier
-from ingestion.lineage import register_document
+from ingestion.lineage import record_span_context, register_document
 from ingestion.models import LineageStatus, RouteDecision, SentinelDecision
 from ingestion.parsing import LocalParser, Parser
 from ingestion.sentinel import (
@@ -31,6 +31,7 @@ from ingestion.sentinel import (
     run_sentinel,
 )
 from memory.event_log import EventLog
+from observability.otel import trace_id_of
 from observability.tracing import parse_span, route_span, sentinel_span, tripwire_span
 from runtime.bucket_notify import parse_notification
 from runtime.events import EventEnvelope, EventType, new_event
@@ -93,8 +94,15 @@ def ingest_blob(
         return IngestResult(document_id, deal_id, STATUS_SUPPRESSED, None, False, False, ())
 
     if tracer is not None:
-        with parse_span(tracer):
+        with parse_span(tracer) as span:
             parsed = context.parser.parse(blob, document_id, deal_id)
+        record_span_context(
+            context.client,
+            deal_id,
+            document_id,
+            trace_id_of(span),
+            format(span.get_span_context().span_id, "016x"),
+        )
     else:
         parsed = context.parser.parse(blob, document_id, deal_id)
 

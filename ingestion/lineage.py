@@ -126,9 +126,31 @@ def register_document(
             "supersedes": record.supersedes,
             "ingested_at": record.ingested_at.isoformat(),
             "status": record.status.value,
-        }
+        },
+        merge=True,
     )
     return record
+
+
+def record_span_context(
+    client: firestore.Client, deal_id: str, document_id: str, trace_id: str, span_id: str
+) -> None:
+    """Attach the ingestion span that parsed this document (D10-M4 carrier)."""
+    _collection(client, deal_id).document(document_id).update(
+        {"trace_id": trace_id, "span_id": span_id}
+    )
+
+
+def span_context_for(
+    client: firestore.Client, deal_id: str, document_id: str
+) -> tuple[str, str] | None:
+    """Return the recorded ingestion span context for *document_id*, if any."""
+    data = _collection(client, deal_id).document(document_id).get().to_dict() or {}
+    trace_id = data.get("trace_id")
+    span_id = data.get("span_id")
+    if isinstance(trace_id, str) and isinstance(span_id, str):
+        return trace_id, span_id
+    return None
 
 
 def _latest_for_key(
@@ -172,6 +194,7 @@ def link_supersedes(
             "supersedes": updated.supersedes,
             "ingested_at": updated.ingested_at.isoformat(),
             "status": updated.status.value,
-        }
+        },
+        merge=True,
     )
     return updated

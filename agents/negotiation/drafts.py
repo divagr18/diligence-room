@@ -251,6 +251,7 @@ def generate_draft(
     with stage_span(
         tracer,
         "negotiation.transition",
+        links=None,
         **{
             "negotiation.kind": kind.value,
             "negotiation.from_state": "none",
@@ -292,6 +293,7 @@ def _transition(
     with stage_span(
         tracer,
         "negotiation.transition",
+        links=None,
         **{
             "negotiation.kind": draft.kind.value,
             "negotiation.from_state": draft.state.value,

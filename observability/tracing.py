@@ -7,14 +7,14 @@ the live window swaps in a Cloud Trace exporter at the same seam.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-from opentelemetry.trace import Span, Tracer
+from opentelemetry.trace import Link, Span, Tracer
 
 _TRACER_NAME = "diligence-room.ingestion"
 
@@ -70,13 +70,19 @@ def route_span(tracer: Tracer, *, workstream: str | None) -> Iterator[Span]:
 
 @contextmanager
 def stage_span(
-    tracer: Tracer | None, name: str, **attributes: str | int | float | bool
+    tracer: Tracer | None,
+    name: str,
+    *,
+    links: Sequence[Link] | None = None,
+    **attributes: str | int | float | bool,
 ) -> Iterator[Span | None]:
     """Open *name* when *tracer* is present; tracer-less call sites yield None."""
     if tracer is None:
         yield None
         return
-    with tracer.start_as_current_span(name) as span:
+    with tracer.start_as_current_span(
+        name, links=list(links) if links is not None else None
+    ) as span:
         for key, value in attributes.items():
             span.set_attribute(key, value)
         yield span

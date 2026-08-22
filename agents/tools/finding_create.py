@@ -31,6 +31,8 @@ from memory.findings import (
     FindingStatus,
 )
 from memory.partitions import partition_collection
+from observability.otel import trace_id_of
+from observability.trace_link import ingestion_links
 from observability.tracing import stage_span
 from runtime.events import EventEnvelope, EventType, new_event
 
@@ -238,60 +240,71 @@ def make_finding_create(
                 "substring of the cited document's parsed text",
             )
 
-        requested_id = payload.get("finding_id")
-        finding_id = (
-            requested_id
-            if isinstance(requested_id, str) and requested_id.strip()
-            else uuid.uuid4().hex[:12]
+        links = (
+            ingestion_links(client, principal.deal_id, [entry.document_id for entry in evidence])
+            if tracer is not None
+            else None
         )
-        stamp = now if now is not None else datetime.now(UTC)
-        source_documents = _string_list(payload.get("source_documents")) or tuple(
-            entry.document_id for entry in evidence
-        )
-        # Vision §19.3: low-confidence findings are capped at candidate.
-        initial_status = (
-            FindingStatus.CANDIDATE
-            if float(confidence) < EVIDENCE_CANDIDATE_THRESHOLD
-            else FindingStatus.OPEN
-        )
-        finding = Finding(
-            finding_id=finding_id,
-            deal_id=principal.deal_id,
-            workstream=principal.workstream,
-            title=title,
-            summary=summary,
-            severity=FindingSeverity(severity),
-            confidence=float(confidence),
-            status=initial_status,
-            evidence=evidence,
-            owner=principal.name,
-            created_at=stamp,
-            updated_at=stamp,
-            source_documents=source_documents,
-            affected_entities=_string_list(payload.get("affected_entities")),
-            questions=_string_list(payload.get("questions")),
-        )
-        try:
-            store.create(finding)
-        except DuplicateFindingError:
-            # A rerun must not surface as an unhandled exception to the ADK
-            # model loop; report it through the same structured contract.
-            return _reject("duplicate_finding", f"finding {finding_id} already exists")
-        partition_collection(client, principal.deal_id, principal.workstream).document(
-            finding_id
-        ).set(
-            {
-                "finding_id": finding_id,
-                "title": finding.title,
-                "severity": finding.severity.value,
-                "status": finding.status.value,
-                "created_at": stamp.isoformat(),
-            }
-        )
-        # Vision §10: critical findings automatically notify the deal lead;
-        # §19.3 candidate-capped findings never auto-escalate.
-        if finding.status is not FindingStatus.CANDIDATE:
-            escalate_if_critical(client, publisher, finding, now=stamp)
-        return {"decision": "created", "finding_id": finding_id}
+        with stage_span(tracer, "finding.create", links=links) as span:
+            requested_id = payload.get("finding_id")
+            finding_id = (
+                requested_id
+                if isinstance(requested_id, str) and requested_id.strip()
+                else uuid.uuid4().hex[:12]
+            )
+            stamp = now if now is not None else datetime.now(UTC)
+            source_documents = _string_list(payload.get("source_documents")) or tuple(
+                entry.document_id for entry in evidence
+            )
+            # Vision §19.3: low-confidence findings are capped at candidate.
+            initial_status = (
+                FindingStatus.CANDIDATE
+                if float(confidence) < EVIDENCE_CANDIDATE_THRESHOLD
+                else FindingStatus.OPEN
+            )
+            finding = Finding(
+                finding_id=finding_id,
+                deal_id=principal.deal_id,
+                workstream=principal.workstream,
+                title=title,
+                summary=summary,
+                severity=FindingSeverity(severity),
+                confidence=float(confidence),
+                status=initial_status,
+                evidence=evidence,
+                owner=principal.name,
+                created_at=stamp,
+                updated_at=stamp,
+                source_documents=source_documents,
+                affected_entities=_string_list(payload.get("affected_entities")),
+                questions=_string_list(payload.get("questions")),
+                audit_trace_id=trace_id_of(span) if span is not None else None,
+            )
+            try:
+                store.create(finding)
+            except DuplicateFindingError:
+                # A rerun must not surface as an unhandled exception to the ADK
+                # model loop; report it through the same structured contract.
+                return _reject("duplicate_finding", f"finding {finding_id} already exists")
+            if span is not None:
+                span.set_attribute("gen_ai.system", "diligence-room")
+                span.set_attribute("finding.id", finding_id)
+                span.set_attribute("finding.severity", severity)
+            partition_collection(client, principal.deal_id, principal.workstream).document(
+                finding_id
+            ).set(
+                {
+                    "finding_id": finding_id,
+                    "title": finding.title,
+                    "severity": finding.severity.value,
+                    "status": finding.status.value,
+                    "created_at": stamp.isoformat(),
+                }
+            )
+            # Vision §10: critical findings automatically notify the deal lead;
+            # §19.3 candidate-capped findings never auto-escalate.
+            if finding.status is not FindingStatus.CANDIDATE:
+                escalate_if_critical(client, publisher, finding, now=stamp)
+            return {"decision": "created", "finding_id": finding_id}
 
     return finding_create

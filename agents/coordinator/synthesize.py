@@ -37,6 +37,8 @@ from memory.findings import (
     FindingStatus,
 )
 from memory.partitions import partition_collection
+from observability.otel import trace_id_of
+from observability.trace_link import ingestion_links
 from observability.tracing import stage_span
 from registry.models import Workstream
 from runtime.events import EventEnvelope, EventType, new_event
@@ -105,7 +107,7 @@ def synthesize_critical(
     with stage_span(tracer, "coordinator.synthesize") as span:
         if span is not None:
             span.set_attribute("coordinator.deal", deal_id)
-        outcome = _synthesize(client, deal_id, publisher, doc_source, now)
+        outcome = _synthesize(client, deal_id, publisher, doc_source, now, tracer)
         if span is not None:
             span.set_attribute("coordinator.accepted", outcome.finding_id is not None)
             if outcome.entity is not None:
@@ -120,6 +122,7 @@ def _synthesize(
     publisher: _Publisher | None,
     doc_source: DocSource | None,
     now: datetime | None,
+    tracer: Tracer | None,
 ) -> _SynthesisOutcome:
     store = FindingsStore(client)
     entity = _convergence_entity(store, deal_id)
@@ -159,60 +162,71 @@ def _synthesize(
         if parsed.text is None or entry.verbatim_span not in parsed.text:
             return _SynthesisOutcome(None, entity, len(contributors))
 
-    contributor_ids = tuple(f.finding_id for f in contributors)
-    finding_id = _stable_synthesis_id(deal_id, entity, contributor_ids)
-    stamp = now if now is not None else datetime.now(UTC)
-    finding = Finding(
-        finding_id=finding_id,
-        deal_id=deal_id,
-        workstream=_ANCHOR_WORKSTREAM,
-        title="Compound customer-exit exposure threatens deal economics",
-        summary=(
-            f"{len(REQUIRED_CONTRIBUTORS)} workstreams independently converge on {entity}: "
-            + "; ".join(f.title for f in contributors)
-            + ". None of these findings alone establishes the full business impact."
-        ),
-        severity=FindingSeverity.CRITICAL,
-        confidence=min(f.confidence for f in contributors),
-        status=FindingStatus.OPEN,
-        evidence=tuple(evidence),
-        owner=f"{_COORDINATOR_ACTOR}@{deal_id}",
-        created_at=stamp,
-        updated_at=stamp,
-        source_documents=tuple(dict.fromkeys(source_documents)),
-        related_findings=contributor_ids,
-        affected_entities=(entity,),
+    links = (
+        ingestion_links(client, deal_id, [entry.document_id for entry in evidence])
+        if tracer is not None
+        else None
     )
-    try:
-        store.create(finding)
-    except DuplicateFindingError:
-        return _SynthesisOutcome(finding_id, entity, len(contributors))
-
-    if publisher is not None:
-        publisher.publish(
-            new_event(
-                deal_id,
-                _COORDINATOR_ACTOR,
-                EventType.FINDING_CREATED,
-                {
-                    "finding_id": finding_id,
-                    "title": finding.title,
-                    "severity": finding.severity.value,
-                    "workstream": finding.workstream.value,
-                    "contributing_findings": list(contributor_ids),
-                    "affected_entity": entity,
-                },
-                now=stamp,
-            )
+    with stage_span(tracer, "finding.create", links=links) as span:
+        contributor_ids = tuple(f.finding_id for f in contributors)
+        finding_id = _stable_synthesis_id(deal_id, entity, contributor_ids)
+        stamp = now if now is not None else datetime.now(UTC)
+        finding = Finding(
+            finding_id=finding_id,
+            deal_id=deal_id,
+            workstream=_ANCHOR_WORKSTREAM,
+            title="Compound customer-exit exposure threatens deal economics",
+            summary=(
+                f"{len(REQUIRED_CONTRIBUTORS)} workstreams independently converge on {entity}: "
+                + "; ".join(f.title for f in contributors)
+                + ". None of these findings alone establishes the full business impact."
+            ),
+            severity=FindingSeverity.CRITICAL,
+            confidence=min(f.confidence for f in contributors),
+            status=FindingStatus.OPEN,
+            evidence=tuple(evidence),
+            owner=f"{_COORDINATOR_ACTOR}@{deal_id}",
+            created_at=stamp,
+            updated_at=stamp,
+            source_documents=tuple(dict.fromkeys(source_documents)),
+            related_findings=contributor_ids,
+            affected_entities=(entity,),
+            audit_trace_id=trace_id_of(span) if span is not None else None,
         )
-    partition_collection(client, deal_id, _ANCHOR_WORKSTREAM).document(finding_id).set(
-        {
-            "finding_id": finding_id,
-            "title": finding.title,
-            "severity": finding.severity.value,
-            "status": finding.status.value,
-            "created_at": stamp.isoformat(),
-        }
-    )
-    escalate_if_critical(client, publisher, finding, now=stamp)
-    return _SynthesisOutcome(finding_id, entity, len(contributors))
+        try:
+            store.create(finding)
+        except DuplicateFindingError:
+            return _SynthesisOutcome(finding_id, entity, len(contributors))
+
+        if span is not None:
+            span.set_attribute("gen_ai.system", "diligence-room")
+            span.set_attribute("finding.id", finding_id)
+            span.set_attribute("finding.severity", finding.severity.value)
+        if publisher is not None:
+            publisher.publish(
+                new_event(
+                    deal_id,
+                    _COORDINATOR_ACTOR,
+                    EventType.FINDING_CREATED,
+                    {
+                        "finding_id": finding_id,
+                        "title": finding.title,
+                        "severity": finding.severity.value,
+                        "workstream": finding.workstream.value,
+                        "contributing_findings": list(contributor_ids),
+                        "affected_entity": entity,
+                    },
+                    now=stamp,
+                )
+            )
+        partition_collection(client, deal_id, _ANCHOR_WORKSTREAM).document(finding_id).set(
+            {
+                "finding_id": finding_id,
+                "title": finding.title,
+                "severity": finding.severity.value,
+                "status": finding.status.value,
+                "created_at": stamp.isoformat(),
+            }
+        )
+        escalate_if_critical(client, publisher, finding, now=stamp)
+        return _SynthesisOutcome(finding_id, entity, len(contributors))
