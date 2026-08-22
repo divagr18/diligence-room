@@ -3,7 +3,7 @@
 The runner feeds every committed attack fixture through the full pipeline and
 scores the outcome against ``redteam/expected.yaml``: one row per fixture plus
 the vision §13 scorecard grouped by attack class. Offline against the emulator
-all 14 fixtures must be blocked at their declared layer with their declared
+all 20 fixtures must be blocked at their declared layer with their declared
 reason.
 """
 
@@ -18,17 +18,17 @@ from redteam.runner import RedteamReport, RedteamRow, main, render_report, run_r
 class TestRunnerRows:
     def test_one_row_per_ledger_fixture(self, firestore_client: firestore.Client) -> None:
         report = run_redteam(firestore_client)
-        assert report.total == 14
+        assert report.total == 20
         assert [row.path for row in report.rows][:3] == [
             "injection/direct_a.pdf",
             "injection/direct_b.pdf",
             "injection/obfuscated/a.pdf",
         ]
 
-    def test_all_ten_fixtures_pass_offline(self, firestore_client: firestore.Client) -> None:
+    def test_all_twenty_fixtures_pass_offline(self, firestore_client: firestore.Client) -> None:
         report = run_redteam(firestore_client)
-        assert report.total == 14
-        assert report.blocked == 14
+        assert report.total == 20
+        assert report.blocked == 20
         assert report.all_passed is True
         for row in report.rows:
             assert row.blocked is True, row.path
@@ -40,8 +40,8 @@ class TestRunnerRows:
         report = run_redteam(firestore_client)
         sentinel_rows = [row for row in report.rows if row.expected_layer == "sentinel_tripwire"]
         armor_rows = [row for row in report.rows if row.expected_layer == "model_armor"]
-        assert len(sentinel_rows) == 7
-        assert len(armor_rows) == 7
+        assert len(sentinel_rows) == 9
+        assert len(armor_rows) == 11
         assert all(row.actual_status == "tripwired" for row in sentinel_rows)
         assert all(row.actual_status == "quarantined" for row in armor_rows)
 
@@ -58,19 +58,19 @@ class TestScorecard:
     def test_scorecard_groups_by_class(self, firestore_client: firestore.Client) -> None:
         report = run_redteam(firestore_client)
         assert report.scorecard == {
-            "injection": (6, 6),
-            "exfiltration": (3, 3),
-            "cross_ws": (3, 3),
-            "poisoning_cross_deal": (2, 2),
+            "injection": (8, 8),
+            "exfiltration": (5, 5),
+            "cross_ws": (4, 4),
+            "poisoning_cross_deal": (3, 3),
         }
 
     def test_render_report_shows_the_board(self, firestore_client: firestore.Client) -> None:
         rendered = render_report(run_redteam(firestore_client))
-        assert "Prompt Injection            6/6 blocked" in rendered
-        assert "Exfiltration                3/3 blocked" in rendered
-        assert "Cross-Workstream Leak       3/3 blocked" in rendered
-        assert "Tool Poisoning / Cross-Deal 2/2 blocked" in rendered
-        assert "TOTAL                       14/14 blocked" in rendered
+        assert "Prompt Injection            8/8 blocked" in rendered
+        assert "Exfiltration                5/5 blocked" in rendered
+        assert "Cross-Workstream Leak       4/4 blocked" in rendered
+        assert "Tool Poisoning / Cross-Deal 3/3 blocked" in rendered
+        assert "TOTAL                       20/20 blocked" in rendered
 
     def test_render_report_marks_a_failed_row(self) -> None:
         row = RedteamRow(
