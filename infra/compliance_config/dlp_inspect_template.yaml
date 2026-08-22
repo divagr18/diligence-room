@@ -1,0 +1,15 @@
+# DLP inspection template (BUILD_PLAN D11-M9)
+# Guarded: applied via `gcloud dlp inspect-templates create`
+# with --confirm-live only; offline tests assert YAML shape and
+# infoType coverage. Trigger is heavy_pii OR hr_roster doc_type.
+template_id: deal-falcon-hr-inspect
+display_name: Deal Falcon HR PII inspection
+info_types:
+  - EMAIL_ADDRESS
+  - PHONE_NUMBER
+  - US_SOCIAL_SECURITY_NUMBER
+min_likelihood: POSSIBLE
+trigger:
+  heavy_pii_threshold: 3
+  doc_types:
+    - hr_roster
