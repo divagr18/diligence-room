@@ -29,6 +29,7 @@ from dashboard.api.models import (
     SecurityFeedItem,
     TraceEdge,
     TraceNode,
+    TraceNodeKind,
     TraceStep,
     WorkstreamProgress,
 )
@@ -83,8 +84,8 @@ def _step(ts: str, stage: str, actor: str, detail: str) -> TraceStep:
     return TraceStep(ts=ts, stage=stage, actor=actor, detail=detail)
 
 
-def _node(kind: str, node_id: str, label: str, detail: str) -> TraceNode:
-    return TraceNode(kind=kind, node_id=node_id, label=label, detail=detail)
+def _node(kind: str | TraceNodeKind, node_id: str, label: str, detail: str) -> TraceNode:
+    return TraceNode(kind=TraceNodeKind(kind), node_id=node_id, label=label, detail=detail)
 
 
 def _edge(from_id: str, to_id: str, label: str) -> TraceEdge:

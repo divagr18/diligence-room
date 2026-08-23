@@ -8,9 +8,19 @@ frontend contract stays honest to the data layer.
 
 from __future__ import annotations
 
+from enum import StrEnum
+
 from pydantic import BaseModel, Field
 
 from agents.negotiation.drafts import NegotiationArtifactKind
+
+
+class TraceNodeKind(StrEnum):
+    DOCUMENT = "document"
+    AGENT = "agent"
+    GATEWAY = "gateway"
+    FINDING = "finding"
+    ESCALATION = "escalation"
 
 
 class DealSummary(BaseModel):
@@ -51,7 +61,7 @@ class TraceStep(BaseModel):
 
 
 class TraceNode(BaseModel):
-    kind: str
+    kind: TraceNodeKind
     node_id: str
     label: str
     detail: str

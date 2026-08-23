@@ -696,7 +696,7 @@ dev = [
     { name = "mypy", specifier = ">=1.11" },
     { name = "pre-commit", specifier = ">=3.7" },
     { name = "pytest", specifier = ">=8.0" },
-    { name = "ruff", specifier = ">=0.5" },
+    { name = "ruff", specifier = "==0.16.3" },
     { name = "types-openpyxl", specifier = ">=3.1" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20260815" },
 ]
