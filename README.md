@@ -4,6 +4,14 @@
 
 > Documents are adversaries, agents are principals, and memory is partitioned by policy — not convenience.
 
+![Diligence Room architecture: data room through ingestion, Gemma sentinel, deny-default gateway, the eight-workstream agent fleet, coordination, and the executive dashboard, bounded by the compliance plane and Cloud Trace](docs/diagram/architecture.svg)
+
+The four-layer stack of vision §22 rendered as Mermaid: ingestion, sentinel,
+agents, coordination, and the dashboard, wrapped by the compliance plane and
+OpenTelemetry traces. Mermaid source:
+[`docs/diagram/architecture.mmd`](docs/diagram/architecture.mmd); PNG export:
+[`docs/diagram/architecture.png`](docs/diagram/architecture.png).
+
 Built for the **AllThingsAgentic Hackathon** (Fortified Enterprise Fleet track) on the Google Gemini Enterprise Agent Platform: Python + Google ADK, Vertex AI Agent Engine, Gemini 3.5 Flash, Firestore, Pub/Sub, Cloud Run, Model Armor, Cloud Trace.
 
 - Specification: [`diligence-room-vision.md`](diligence-room-vision.md)

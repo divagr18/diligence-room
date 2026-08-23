@@ -1,0 +1,104 @@
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#161718", "primaryTextColor": "#f4f4f2", "primaryBorderColor": "#333437", "secondaryColor": "#1e1f21", "tertiaryColor": "#101011", "lineColor": "#95948e", "edgeLabelBackground": "#101011", "clusterBkg": "#101011", "clusterBorder": "#26272a", "titleColor": "#f4f4f2", "fontSize": "14px"}, "flowchart": {"curve": "linear", "nodeSpacing": 38, "rankSpacing": 44}}}%%
+%% Diligence Room architecture. Mermaid render of diligence-room-vision.md §22
+%% "Architectural Shape" (BUILD_PLAN D13-M5). Source of truth stays the vision;
+%% render with: npx -y @mermaid-js/mermaid-cli -i architecture.mmd -o architecture.svg -b "#0a0a0b"
+flowchart TD
+    registry["AGENT REGISTRY<br/>versions, manifests, approval, rollback"]
+
+    subgraph workspace["DEAL WORKSPACE (deal-falcon)"]
+        direction TB
+        dataroom["Data Room<br/>region-pinned Cloud Storage"]
+
+        subgraph layer1["LAYER 1: INGESTION"]
+            direction TB
+            fmt["Format detection<br/>native PDF, XLSX, DOCX, EML, image"]
+            parse["OCR + parsing<br/>Document AI, clause locators"]
+        end
+
+        subgraph layer2["LAYER 2: SENTINEL"]
+            direction TB
+            sentinel["Gemma sentinel<br/>pre-classify, PII mark, tripwire"]
+            armor["Model Armor (managed)<br/>project rules, quarantine store"]
+            dlpscan["Cloud DLP<br/>PII scan"]
+        end
+
+        gateway["AGENT GATEWAY<br/>FastAPI policy engine<br/>deny-default"]
+
+        subgraph layer3["LAYER 3: AGENTS (shared ADK scaffolding, isolated identities + memory)"]
+            direction LR
+            ws_legal["Legal"]
+            ws_finance["Finance"]
+            ws_hr["HR"]
+            ws_iptech["IP/Tech"]
+            ws_tax["Tax"]
+            ws_reg["Regulatory"]
+            ws_esg["ESG"]
+            ws_realestate["Real Estate"]
+            coordinator["Cross-Workstream<br/>Coordinator"]
+            negotiation["Negotiation Support<br/>human-approval gate"]
+        end
+
+        memory["PARTITIONED MEMORY<br/>org / deal / workstream<br/>event log + findings (Firestore)"]
+
+        subgraph layer4["LAYER 4: COORDINATION"]
+            direction TB
+            redflag["Red-Flag / Escalation Engine"]
+            dashboard["Executive Dashboard<br/>Overview, Findings, Security, Registry"]
+            portfolio["Portfolio view<br/>aggregated signals only"]
+        end
+
+        guards["Failure tolerance<br/>loop guard + evidence gate + crash-resume"]
+    end
+
+    subgraph obs["OBSERVABILITY"]
+        direction LR
+        otel["OpenTelemetry<br/>GenAI semconv"]
+        trace["Cloud Trace<br/>trace UI"]
+    end
+
+    subgraph compliance["COMPLIANCE PLANE"]
+        direction LR
+        cmek["CMEK"]
+        vpcsc["VPC-SC"]
+        dlpconf["DLP"]
+        region["Region pinning"]
+        retention["Retention"]
+    end
+
+    %% Data flow: documents enter, findings climb to the executive surface.
+    dataroom --> fmt
+    fmt --> parse
+    parse --> sentinel
+    sentinel --> armor
+    dlpscan -.->|PII hits| sentinel
+    armor -->|cleared| gateway
+    registry -.->|approved versions only| layer3
+    gateway -->|ALLOW| layer3
+    ws_legal --> coordinator
+    ws_finance --> coordinator
+    ws_hr --> coordinator
+    ws_iptech --> coordinator
+    ws_tax --> coordinator
+    ws_reg --> coordinator
+    ws_esg --> coordinator
+    ws_realestate --> coordinator
+    gateway <-->|every read/write passes policy| memory
+    coordinator --> redflag
+    redflag --> negotiation
+    redflag -->|critical findings| dashboard
+    negotiation -->|approved send logged| dashboard
+    dashboard --> portfolio
+    guards -.->|bounds every run| layer3
+    workspace ==>|OTLP spans| otel
+    otel --> trace
+    workspace -.-> compliance
+
+    %% Invisible links keep the spine in the order vision §22 draws it.
+    registry ~~~ dataroom
+    obs ~~~ compliance
+
+    %% DESIGN.md discipline: chrome stays achromatic, only enforcement carries hue.
+    classDef enforcement fill:#161718,stroke:#f2605a,color:#f4f4f2
+    classDef safe fill:#161718,stroke:#4caf7d,color:#f4f4f2
+    class gateway,armor enforcement
+    class trace safe
