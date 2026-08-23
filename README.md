@@ -2,7 +2,7 @@
 
 **A zero-trust runtime for autonomous institutional agent fleets, demonstrated through M&A due diligence.**
 
-> Documents are adversaries, agents are principals, and memory is partitioned by policy — not convenience.
+> Documents are adversaries, agents are principals, and memory is partitioned by policy, not convenience.
 
 ![Diligence Room architecture: data room through ingestion, Gemma sentinel, deny-default gateway, the eight-workstream agent fleet, coordination, and the executive dashboard, bounded by the compliance plane and Cloud Trace](docs/diagram/architecture.svg)
 
@@ -16,6 +16,35 @@ Built for the **AllThingsAgentic Hackathon** (Fortified Enterprise Fleet track) 
 
 - Specification: [`diligence-room-vision.md`](diligence-room-vision.md)
 - Day-by-day build plan: [`BUILD_PLAN.md`](BUILD_PLAN.md)
+
+## Overview: Project Falcon
+
+The demonstration deal is **Project Falcon** (`deal-falcon`): an eight-workstream
+agent fleet runs M&A due diligence on **Vantage Robotics, Inc.**, a synthetic
+target whose data room is seeded with a genuine finding surface. Against the
+golden corpus the fleet must surface four keystone findings:
+
+- **Legal**: the Meridian Logistics change-of-control termination right at `clause:11.3`
+- **Finance**: an 18.3% FY27 revenue concentration on Meridian Logistics
+- **HR**: the pending departure of Dana Whitfield, the Meridian account owner
+- **IP/Tech**: the TitanBridge 4.1 dependency at vendor end-of-life
+
+Zero trust is enforced structurally, not aspirationally. Documents are
+adversaries: every upload passes format detection, parsing, a cheap Gemma
+sentinel tripwire, and Model Armor screening before anything may reach agent
+context. Agents are principals with isolated identities, versioned manifests in
+the Agent Registry, and memory partitioned into org / deal / workstream. Every
+read and write crosses the deny-default Agent Gateway policy engine, and the
+whole deal workspace sits inside a compliance plane (CMEK, VPC-SC, DLP, region
+pinning, retention) with Cloud Trace capturing OpenTelemetry GenAI spans.
+
+The full fourteen days replay offline in minutes. The deterministic scenario
+[`data/scenarios/project_falcon.json`](data/scenarios/project_falcon.json)
+(49 events, seed 42) drives [`runtime/replay.py`](runtime/replay.py) into the
+**real** pipeline under the Firestore emulator: uploads, keystone findings, the
+20-attack red-team ledger, the 2030 amendment, the Legal v2.5 upgrade and
+rollback, and the negotiation beat ending at the human-approval gate. No live
+LLM, no live GCP.
 
 ## Repository layout
 
@@ -50,22 +79,87 @@ uv sync
 #    staging bucket, budget alerts at $85/$136/$170)
 uv run python infra/bootstrap_gcp.py
 
-# 3. Apply org-safety guardrails (audit logs, SA-key policy)
+# 3. Run the offline test battery (session-scoped Firestore emulator)
+uv run pytest
+
+# 4. Build the executive dashboard (FastAPI backend + React frontend)
+npm --prefix dashboard/web install
+npm --prefix dashboard/web run build
+```
+
+Optional steps beyond bootstrap:
+
+```bash
+# Apply org-safety guardrails (audit logs, SA-key policy)
 uv run python infra/guardrails.py
 
-# 4. Deploy the ADK agent to Vertex AI Agent Engine and invoke it asynchronously
+# Deploy the ADK agent to Vertex AI Agent Engine and invoke it asynchronously
 uv run python infra/deploy/agent_engine.py deploy
 uv run python infra/deploy/agent_engine.py invoke
 ```
 
-Credentials: the scripts use **Application Default Credentials** —
+The day-by-day runbooks below cover every offline gate, the flag-gated live
+calls, and the expected output at each step.
+
+## Credentials
+
+All tooling authenticates with **Application Default Credentials** (ADC) or
+workload identity on Cloud Run / Agent Engine. No service-account keys are ever
+created:
 
 ```bash
 gcloud auth login
 gcloud auth application-default login
 ```
 
-(No service-account keys are ever created — see *Security posture* below.)
+`infra/bootstrap_gcp.py` checks ADC at the end of every run and reports the
+exact command when it is missing. See *Security posture* below for the audit
+logging and budget guardrails that surround this choice.
+
+## Stack
+
+| Component | Role |
+|---|---|
+| Google ADK | Shared agent scaffolding: eight workstreams + coordinator + negotiation |
+| Vertex AI Agent Engine | Hosted ADK deployment + asynchronous invocation |
+| Gemini 3.5 Flash | Workstream reasoning + classification behind the sentinel cost gate |
+| Gemma sentinel | Cheap pre-classification, PII marking, and tripwire before any premium call |
+| FastAPI | Agent Gateway policy engine + dashboard API edge |
+| Firestore | Partitioned memory (org / deal / workstream), event log, findings |
+| Pub/Sub | Event bus (`document.*`, `finding.*`, `security.*`) |
+| Cloud Run | Gateway and dashboard edge serving |
+| Model Armor | Managed screening + project rules + quarantine store |
+| Document AI + Cloud DLP | OCR and clause-locator parsing; PII scans feeding the sentinel |
+| Cloud Trace | OpenTelemetry GenAI semantic-convention spans across the pipeline |
+| Cloud KMS (CMEK) | Customer-managed encryption keys for the compliance plane |
+
+## Evaluation
+
+The Day-12 evaluation proof lives in [`evals/`](evals/), with the red-team
+suite in [`redteam/`](redteam/):
+
+- **Golden set** ([`evals/golden_set.py`](evals/golden_set.py)): 20 pinned
+  docs, the committed clean corpus. Four keystone documents pin byte-exact
+  finding titles, severities, affected entities, and chunk locators; the other
+  sixteen are noise and scaffold that a correct fleet must not over-report on.
+- **Shadow harness** ([`evals/harness.py`](evals/harness.py)): runs the four
+  deep workstreams through the same evidence-gated `finding_create` path the
+  live fleet uses, then diffs produced findings against the golden set in
+  strict exact match on title + severity + affected entities. A `missing` or
+  `downgraded` pin fails the run; unpinned `new` titles are reported but do
+  not gate. Deterministic by construction: fixed stamp, sorted diff, no
+  network, no live LLM.
+- **Regression candidate** ([`evals/legal_v25.py`](evals/legal_v25.py)): the
+  deliberately broken Legal v2.5 that the Day-13 upgrade/rollback rehearsal
+  runs through the harness.
+- **Red-team ledger** ([`redteam/expected.yaml`](redteam/expected.yaml)): 20
+  attack fixtures across four batches. Every fixture must be quarantined by
+  the sentinel tripwire or Model Armor project rules before reaching agent
+  context, scored per vision §13 (20/20 at Checkpoint 2).
+
+```bash
+uv run pytest tests/test_golden_set.py tests/test_harness.py tests/test_redteam_runner.py
+```
 
 ## Runbook (Day 1)
 
@@ -78,7 +172,7 @@ gcloud auth application-default login
 | Deploy | `uv run python infra/deploy/agent_engine.py deploy` | reasoningEngines resource name printed |
 | Async invoke | `uv run python infra/deploy/agent_engine.py invoke` | asserted response from deployed agent |
 
-## Runbook (Day 2 — offline against the Firestore emulator)
+## Runbook (Day 2: offline against the Firestore emulator)
 
 | Step | Command | Expected |
 |---|---|---|
@@ -93,7 +187,7 @@ The live runbook (bucket creation, Cloud Run deploy, verification curls) is
 in [`docs/deal_provisioning.md`](docs/deal_provisioning.md) and is guarded by
 `--confirm-live` on every deploy script.
 
-## Runbook (Day 4 — ingestion + Gemma sentinel, offline)
+## Runbook (Day 4: ingestion + Gemma sentinel, offline)
 
 | Step | Command | Expected |
 |---|---|---|
@@ -112,7 +206,7 @@ Live calls (Gemma sentinel, Flash classifier, Document AI) are flag-gated
 window; the Gemma serving decision is recorded in
 [`docs/decisions/gemma-serving.md`](docs/decisions/gemma-serving.md).
 
-## Runbook (Day 5 — gateway policy engine, offline)
+## Runbook (Day 5: gateway policy engine, offline)
 
 | Step | Command | Expected |
 |---|---|---|
@@ -123,7 +217,7 @@ window; the Gemma serving decision is recorded in
 | HTTP edge | `uv run pytest tests/test_gateway_app.py` | `POST /gateway/decide` ALLOW/DENY/422 |
 | **E2E gate (Phase 3)** | `uv run pytest tests/test_gateway_e2e.py` | CoC finding -> ALLOW -> 18.3% linked finding -> denied direct read |
 
-## Runbook (Day 7 — Checkpoint 1 + Model Armor, offline)
+## Runbook (Day 7: Checkpoint 1 + Model Armor, offline)
 
 | Step | Command | Expected |
 |---|---|---|
@@ -142,7 +236,7 @@ offline screening rides the deterministic project-rules layer. Evidence:
 `docs/evidence/d7-redteam.txt`, `docs/evidence/d7-offline-gate.txt`,
 `docs/evidence/d7-live-armor.txt`.
 
-## Runbook (Dashboard — Executive Deal Room web shell, pulled forward from Day 11)
+## Runbook (Dashboard: Executive Deal Room web shell, pulled forward from Day 11)
 
 | Step | Command | Expected |
 |---|---|---|
@@ -178,13 +272,14 @@ org-scope constraints cannot be applied:
 
 | Desired control | Org mechanism | Status here |
 |---|---|---|
-| Disable SA key creation | `iam.disableServiceAccountKeyCreation` (org/folder only) | **Deviation** — enforced by convention: zero SA keys, ADC/workload identity only; audited via Cloud Audit Logs |
+| Disable SA key creation | `iam.disableServiceAccountKeyCreation` (org/folder only) | **Deviation**, enforced by convention: zero SA keys, ADC/workload identity only; audited via Cloud Audit Logs |
 | Org policy constraints | Organization Policy Service | N/A without org node |
-| Branch protection | GitHub repo setting (not org policy) | **Applied** — `main` protected (enforce admins, no force-push/delete) on the private repo |
+| Branch protection | GitHub repo setting (not org policy) | **Applied**, `main` protected (enforce admins, no force-push/delete) on the private repo |
 
 These deviations are recorded deliberately and will be revisited if the project moves under an
 organization.
 
 ## License
 
-Apache 2.0 (see `LICENSE` — added at submission, Day 14).
+Apache-2.0. The `LICENSE` file ships at submission (Day 14, D14-M2); until
+then the repository stays private.
