@@ -19,6 +19,8 @@ from pathlib import Path
 
 from google.cloud import firestore
 
+from memory.db import make_client
+
 # Vertex live-window env the operator must set before opening the window.
 # These are validated (validate_live_env) and deliberately NOT defaulted here:
 # defaulting them at import time made the env contract self-satisfying.
@@ -104,7 +106,7 @@ def _run_live(deal_id: str) -> int:
         print("[armor] RED: fixture was NOT blocked - window captured as a red result")
         return 1
 
-    client = firestore.Client(project=project)
+    client = make_client(project)
     store = QuarantineStore(client)
     publisher = _EventLogPublisher(client)
     record = store.quarantine(

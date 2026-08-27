@@ -53,12 +53,13 @@ class _EventLogPublisher:
 def _run_live(deal_id: str) -> int:
     from agents.coordinator.synthesize import REQUIRED_CONTRIBUTORS, synthesize_critical
     from gateway.policy import PolicyStore
+    from memory.db import make_client
     from memory.findings import FindingSeverity, FindingsStore
     from registry.seed import seed_registry
     from registry.store import AgentRegistryStore
 
     project = os.environ["GOOGLE_CLOUD_PROJECT"]
-    client = firestore.Client(project=project)
+    client = make_client(project)
     store = AgentRegistryStore(client)
     seeded = seed_registry(store)
     print(

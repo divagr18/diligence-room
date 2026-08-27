@@ -149,9 +149,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("WRITE-ONLY: this script refuses to write to live Firestore without --confirm-live.")
         sys.exit("Refused: pass --confirm-live to acknowledge live registry seeding.")
 
-    from google.cloud import firestore
+    from memory.db import make_client
 
-    client = firestore.Client(project=args.project)
+    client = make_client(args.project)
     store = AgentRegistryStore(client)
     created = seed_registry(store)
     total = len(store.list_manifests())

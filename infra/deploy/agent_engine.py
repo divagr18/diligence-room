@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -26,7 +27,9 @@ PROJECT_ID = "diligence-room"
 # Agent Engine resources live in us-central1 (canonical supported region);
 # the gemini-3.5-flash model itself is only served from the global location,
 # so the remote ADK runtime gets GOOGLE_CLOUD_LOCATION=global via env_vars.
-LOCATION = "us-central1"
+# DILIGENCE_AGENT_ENGINE_LOCATION overrides the region (post-undelete the
+# us-central1 control plane can lag; europe-west1 serves as fallback).
+LOCATION = os.environ.get("DILIGENCE_AGENT_ENGINE_LOCATION", "us-central1")
 MODEL_LOCATION = "global"
 STAGING_BUCKET = f"gs://{PROJECT_ID}-staging"
 DISPLAY_NAME = "diligence-room-hello"
@@ -36,6 +39,14 @@ REMOTE_REQUIREMENTS: list[str] = [
     "google-cloud-aiplatform[adk,agent_engines]>=1.100.0",
     "google-adk>=1.5.0,<3.0.0",
     "google-genai>=1.5.0",
+    # base_agent and its tool closure import these at module level; the
+    # Agent Engine container fails to start without them.
+    "google-cloud-firestore>=2.16",
+    "opentelemetry-api>=1.25",
+    "opentelemetry-sdk>=1.25",
+    "openpyxl>=3.1",
+    "pypdf>=4.0",
+    "python-docx>=1.1",
 ]
 
 
@@ -67,7 +78,20 @@ def cmd_deploy(args: argparse.Namespace) -> int:
         root_agent,
         display_name=args.display_name or DISPLAY_NAME,
         requirements=REMOTE_REQUIREMENTS,
-        extra_packages=["./agents"],
+        # Full first-party import closure of agents.base_agent.root_agent:
+        # cloudpickle re-imports these modules on the remote container.
+        extra_packages=[
+            "./agents",
+            "./identity",
+            "./registry",
+            "./memory",
+            "./observability",
+            "./gateway",
+            "./runtime",
+            "./ingestion",
+            "./armor",
+            "./coordination",
+        ],
         env_vars={
             "GOOGLE_GENAI_USE_VERTEXAI": "TRUE",
             "GOOGLE_CLOUD_LOCATION": MODEL_LOCATION,

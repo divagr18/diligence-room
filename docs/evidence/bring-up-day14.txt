@@ -1,0 +1,202 @@
+DAY 14 FULL BRING-UP (2026-08-27) - live restoration of project diligence-room (910285417505)
+
+====================================================================
+0. SITUATION FOUND
+====================================================================
+Project lifecycleState ACTIVE (undeleted 2026-08-27T15:25:46Z per
+resourcemanager audit log) but billing was DISABLED, so every service API
+rejected (PERMISSION_DENIED / CONSUMER_INVALID). Billing account
+012D4F-261885-E006CE (OPEN; operator = roles/billing.admin).
+
+Sequence of the day's restoration:
+  $ gcloud billing projects link diligence-room --billing-account=012D4F-...
+  $ uv run python infra/bootstrap_gcp.py
+     -> project/billing/services(38)/staging bucket/budget($170 cap,
+        thresholds 50/80/100) all verified - ok
+  $ uv run python infra/guardrails.py
+     -> audit configs datastore+storage (ADMIN_READ/DATA_READ/DATA_WRITE)
+        verified; zero SA keys; no-org deviation documented (README)
+
+Post-undelete service caches reconcile slowly. Three surfaces stayed
+cached-deleted all day (polling receipts in section 5):
+  - Cloud Run write path: "denied: Project #910285417505 has been deleted"
+  - aiplatform Reasoning Engines: "The project doesn't exist"
+  - Firestore (default) database: zombie record (GET metadata ok;
+    DELETE -> NOT_FOUND; CREATE -> ALREADY_EXISTS; serve -> "database was
+    deleted"). Destroyed by the Day-7 teardown delete; undelete restores
+    metadata only. NOT a propagation issue - permanent.
+
+Also fixed: ADC quota_project pointed at deleted project pull-guard-prod
+(broke DLP + Cloud Trace quota attribution). Corrected via
+`gcloud auth application-default set-quota-project diligence-room`.
+
+====================================================================
+1. FIRESTORE - NAMED-DATABASE MIGRATION (the fix)
+====================================================================
+memory/db.py: make_client()/database_id() factory bound to
+DILIGENCE_FIRESTORE_DATABASE (unset -> "(default)", all tests/emulator
+paths unchanged; 5 new tests tests/test_db_factory.py). 15 production
+call sites swapped to the factory (main.py, dashboard/main.py,
+dashboard/api/app.py, registry/{seed,server}.py, runtime/{consumer,
+replay}.py, redteam/runner.py, scripts/run_d{4,5,6,7,8,10,12}_*.py).
+Named live database `diligence` (nam5, FIRESTORE_NATIVE) found
+pre-provisioned by the concurrent operator session; smoke write/read/
+delete PASS.
+
+Live seed (env DILIGENCE_FIRESTORE_DATABASE=diligence):
+  $ uv run python registry/seed.py --confirm-live
+     -> Seeded 8 new manifest(s); registry now holds 8 agent(s).
+  $ provision_deal(build_falcon_deal(now))  (one-liner via memory.db)
+     -> deal-falcon provisioned; fields: created_at, deal_id, deal_type,
+        expected_window_days, name, policy_profile_id, regions, status,
+        target
+
+Cloud Run env wiring extended in infra/deploy/{cloud_run,dashboard}.py:
+DILIGENCE_FIRESTORE_DATABASE=diligence added to both services.
+
+====================================================================
+2. LIVE PIPELINE WINDOWS (named DB + Vertex ADC, location=global)
+====================================================================
+D5 gateway sanity (scripts/run_d5_live_sanity.py --deal-id deal-falcon):
+  verdict=allow reason=aggregate_permitted rule=legal->finance
+  finance agent (real gemini-3.5-flash ADK loop): "18.3% (Source:
+  financials_fy27.xlsx)" - PASS
+
+D6 live fleet (scripts/run_d6_live_fleet.py --deal-id deal-falcon):
+  legal    -> Change of Control Termination Right in Meridian Logistics
+              Agreement (also exercised ask_agent gateway corridor)
+  finance  -> Significant Customer Concentration Risk in FY27 Revenue
+  hr       -> Key-Person Dependency: Resignation of VP Customer Success
+              Dana Whitfield
+  ip_tech  -> Fleet Orchestration Platform End-of-Life (TitanBridge 4.1)
+  deep workstreams with >=1 gated finding: 4/4 - PASS
+  First ip_tech run named the entity "Meridian Logistics, Inc. account",
+  which broke strict convergence; finding_create tool contract now
+  requires canonical legal-entity names; ip_tech re-run (--only ip_tech)
+  produced the canonical entity. Script gained --only filter.
+
+D8 coordinator (scripts/run_d8_live_coordinator.py --deal-id deal-falcon):
+  synthesized CRITICAL finding b093295dab91 "Compound customer-exit
+  exposure threatens deal economics"; contributors e29cdbba7dbe,
+  3329fa79c105, 767a4ecaa95f, 744c4fa6253e; escalated to deal-lead
+  inbox: True - PASS (keystone live)
+
+D7 live armor (scripts/run_d7_live_armor.py --deal-id deal-falcon):
+  template projects/diligence-room/locations/us-central1/templates/
+  diligence-room-d7 (survived from Day-7 window); managed verdict
+  blocked=True reasons=['armor:pi_and_jailbreak'] latency_ms=520.6;
+  combined with project rules ['injection.ignore_variants']; quarantine
+  record deals/deal-falcon/quarantined/direct_a.pdf + security event -
+  PASS
+
+D10 live trace (scripts/run_d10_live_trace.py --deal-id deal-falcon):
+  first run exported against dead ADC quota project (pull-guard-prod) ->
+  span lost; after quota fix re-run: finding b499fbbe1cef,
+  audit_trace_id=550be385b6e9635d2be2e233e43ca7d0; trace verified via
+  cloudtrace.googleapis.com/v1 GET (2 spans) - PASS
+  Console: https://console.cloud.google.com/traces/list?project=diligence-room&tid=550be385b6e9635d2be2e233e43ca7d0
+
+Red-team ledger live (redteam/runner.py --deal-id deal-falcon
+--confirm-live): 20/20 blocked (injection 8/8, exfiltration 5/5,
+cross-workstream 4/4, poisoning/cross-deal 3/3), quarantine records +
+security events in live Firestore - PASS
+
+====================================================================
+3. COMPLIANCE PLANE
+====================================================================
+KMS: keyrings diligence-room-us (us-central1) + diligence-room-eu
+  (europe-west1), keys deal-falcon-primary (purpose=encryption,
+  rotation 90d) - created via gcloud kms
+DLP: inspect template projects/diligence-room/inspectTemplates/
+  deal-falcon-hr-inspect (EMAIL_ADDRESS, PHONE_NUMBER,
+  US_SOCIAL_SECURITY_NUMBER; minLikelihood POSSIBLE) - created via REST
+  (gcloud dlp group not in this SDK)
+Model Armor: template diligence-room-d7 verified live (pi+jailbreak
+  MEDIUM_AND_ABOVE + malicious URI)
+VPC-SC: NOT APPLICABLE on this standalone account - Access Context
+  Manager policies require an organization node (gcloud
+  access-context-manager policies list demands --organization). Recorded
+  as deviation alongside the README org-policy deviations; offline
+  verification (tests/test_vpcsc.py, vpc_sc.yaml) unchanged.
+Data room: topic deal-events + subscription deal-events-sub + US/EU
+  buckets + GCS service-agent IAM grant + OBJECT_FINALIZE notifications
+  all verified present (infra/data_room.py --confirm-live idempotent
+  no-op). Live upload: contract_meridian_logistics.pdf -> OBJECT_FINALIZE
+  message queued on deal-events-sub (eventType verified via pull, left
+  un-acked for the consumer).
+
+====================================================================
+4. OFFLINE GATES (full changeset)
+====================================================================
+uv run pytest tests/ -q            -> 1103 passed in 27.87s
+uv run ruff check .                -> All checks passed
+uv run ruff format --check .       -> already formatted
+uv run mypy .                      -> Success: no issues in 209 files
+uv run pre-commit run --all-files  -> ruff/format/mypy/gitleaks Passed
+
+====================================================================
+5. COMPUTE PLANES - RESOLVED VIA europe-west1 PIVOT
+====================================================================
+The cached-deleted state turned out to be PER-REGION: us-central1 stayed
+stale ("denied: Project #910285417505 has been deleted" / "The project
+doesn't exist", API toggle no effect), but europe-west1 accepts the
+project. All compute deployed to europe-west1 (within deal-falcon's
+declared US+EU region set):
+
+Cloud Run (both services serving 100% traffic):
+  gateway   https://gateway-910285417505.europe-west1.run.app
+    GET /health -> {"status":"ok","service":"gateway"}
+    GET /whoami -> {"caller":"anonymous"}
+    POST /gateway/decide (live named DB):
+      legal->finance purpose=revenue_concentration
+        -> allow / aggregate_permitted / rule legal->finance
+      free-text purpose -> deny / purpose_not_allowed (same rule)
+      hr->finance -> deny / no_policy
+  dashboard https://diligence-room-dashboard-910285417505.europe-west1.run.app
+    /api/health -> {"status":"ok","deal":"deal-falcon"}
+    /api/findings 11 items; /api/registry 8 agents
+    /api/security LIVE tallies from Firestore: 61 quarantined,
+      scorecard 8/5/4/3 = 20/20 blocked, feed 10
+    SPA / and /findings 200; /api/documents/<id> serves source PDF
+    (3814 bytes, application/pdf)
+  Build notes: GOOGLE_ENTRYPOINT is a bash command, not a module spec
+    (first attempt exit(127)); --set-build-env-vars pairs must be
+    separate flags (comma join corrupted GOOGLE_PYTHON_VERSION).
+
+Vertex AI Agent Engine (europe-west1):
+  resource projects/910285417505/locations/europe-west1/
+    reasoningEngines/1322008800772751360
+  invoke -> Session 2566193343897796608
+  response 'The echoed text is: diligence-room-day1-smoke' - PASS
+  Dependency-drift bug found + fixed (would fail in ANY region):
+    agents/base_agent.py's closure had outgrown the remote packaging -
+    google-cloud-firestore/opentelemetry/openpyxl/pypdf/python-docx
+    added to REMOTE_REQUIREMENTS and the first-party import closure
+    (agents, identity, registry, memory, observability, gateway,
+    runtime, ingestion, armor, coordination) added to extra_packages.
+    Two failed engine starts (missing firestore import, then missing
+    ingestion package) proved the diagnosis from container logs.
+  agent_engine.py gained DILIGENCE_AGENT_ENGINE_LOCATION override
+    (default us-central1 preserved).
+
+Consumer chain (Day-2 beat, live):
+  contract_meridian_logistics.pdf upload -> OBJECT_FINALIZE ->
+  deal-events -> runtime/consumer.py --confirm-live --once ->
+  processed=1 duplicates=1 (the pre-peeked redelivery deduped by the
+  audit log - the idempotency contract), deployed agent invoked
+  (Session 9159463198368202752).
+
+Live Firestore state after bring-up (database 'diligence'):
+  deal-falcon active; 131 events; 8 findings across workstreams
+  (fleet 4 + ip_tech canonical re-run + 2 trace probes + coordinator
+  CRITICAL b093295dab91).
+
+us-central1 Cloud Run + Agent Engine remain cached-deleted at end of
+day; EU serving is the live configuration (redeploy to us-central1 is
+one idempotent command each once that cache reconciles).
+
+D4 live window (hosted Gemma sentinel) skipped honestly: requires
+GOOGLE_API_KEY (AI Studio), not present in this environment.
+
+Final gates at close: pytest 1103 passed; ruff clean; mypy clean
+(209 files); pre-commit (ruff/format/mypy/gitleaks) Passed.

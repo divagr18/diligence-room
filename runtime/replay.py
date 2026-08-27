@@ -32,6 +32,7 @@ from google.cloud import firestore
 from opentelemetry.sdk.trace.export import SpanExporter
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
+from memory.db import make_client
 from observability.tracing import setup_tracing, stage_span, tracer_from
 from runtime.replay_engine import ReplayEngine
 
@@ -110,7 +111,7 @@ def run_replay(
     started = time.monotonic()
     envelope, events = _load_scenario(config.scenario_path)
     ordered = sorted(events, key=lambda event: _parse_ts(str(event["ts"])))
-    client = config.client if config.client is not None else firestore.Client()
+    client = config.client if config.client is not None else make_client()
     run_id = derive_run_id(config.seed)
     provider = setup_tracing(
         service_name="diligence-room-replay",

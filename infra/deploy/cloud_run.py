@@ -20,12 +20,14 @@ def build_deploy_args(
     source: str,
     region: str,
     allow_unauthenticated: bool,
+    env_vars: Sequence[str] = (),
 ) -> list[str]:
     """Return the ``gcloud run deploy`` argument list.
 
     Pins the remote Python runtime (GOOGLE_PYTHON_VERSION) because the repo's
     ``.python-version`` targets local development tooling and is excluded from
-    the source upload (see .gcloudignore).
+    the source upload (see .gcloudignore). ``env_vars`` are runtime KEY=VALUE
+    pairs (one ``--set-env-vars`` per entry).
     """
     args: list[str] = [
         "run",
@@ -39,6 +41,8 @@ def build_deploy_args(
         project,
         "--set-build-env-vars=GOOGLE_PYTHON_VERSION=3.13",
     ]
+    for env_var in env_vars:
+        args.append(f"--set-env-vars={env_var}")
     if allow_unauthenticated:
         args.append("--allow-unauthenticated")
     return args
@@ -50,7 +54,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--project", default="diligence-room")
     parser.add_argument("--service", default="gateway")
     parser.add_argument("--region", default="us-central1")
-    parser.add_argument("--source", default="gateway/")
+    # Repo root: the buildpack entrypoint is the root main.py (main:app) and
+    # the root .gcloudignore bounds the upload.
+    parser.add_argument("--source", default=".")
     parser.add_argument("--allow-unauthenticated", action="store_true")
     parser.add_argument("--confirm-live", action="store_true")
     args = parser.parse_args(argv)
@@ -65,6 +71,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         source=args.source,
         region=args.region,
         allow_unauthenticated=args.allow_unauthenticated,
+        # Wires the Firestore-backed policy edge (POST /gateway/decide) onto
+        # the named live database (the (default) record is a post-undelete
+        # zombie; see memory/db.py).
+        env_vars=("DILIGENCE_GATEWAY_LIVE=1", "DILIGENCE_FIRESTORE_DATABASE=diligence"),
     )
     run_gcloud(deploy_args)
     print(f"Deploy submitted: gcloud {' '.join(deploy_args)}")

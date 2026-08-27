@@ -32,6 +32,7 @@ from ingestion.pipeline import (
     ingest_blob,
 )
 from ingestion.sentinel import FakeSentinel
+from memory.db import make_client
 from runtime.events import EventType, InMemoryPublisher
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -243,7 +244,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.confirm_live and not project:
         return refuse("Refusing: live run requires GOOGLE_CLOUD_PROJECT.")
 
-    client = firestore.Client(project=project) if project else firestore.Client()
+    client = make_client(project) if project else make_client()
     report = run_redteam(client, deal_id=args.deal_id)
     print(render_report(report))
     return 0 if report.all_passed else 1

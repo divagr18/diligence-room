@@ -58,6 +58,7 @@ from dashboard.api.models import (
     SecurityBundle,
 )
 from identity.human_authz import Role, can_view
+from memory.db import make_client
 from memory.event_log import EventLog, EventLogPublisher
 from memory.findings import FindingNotFoundError, FindingStatus
 from registry.models import AgentManifest, Workstream
@@ -87,9 +88,7 @@ def create_app(
     a 503."""
     live_client = client
     if live_client is None and os.environ.get("FIRESTORE_EMULATOR_HOST"):
-        live_client = firestore.Client(
-            project=os.environ.get("GOOGLE_CLOUD_PROJECT", "diligence-room")
-        )
+        live_client = make_client(os.environ.get("GOOGLE_CLOUD_PROJECT", "diligence-room"))
     publisher = EventLogPublisher(EventLog(live_client)) if live_client is not None else None
     app = FastAPI(title="Diligence Room Dashboard API", version="0.1.0")
     app.add_middleware(

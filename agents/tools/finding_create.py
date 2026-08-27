@@ -164,7 +164,10 @@ def make_finding_create(
                 critical), confidence (0.0-1.0), evidence[] with exact
                 verbatim_span + document_id + category (the data-room category
                 of the cited document), source_documents[],
-                affected_entities[], questions[].
+                affected_entities[] (canonical legal-entity names exactly as
+                written in the source document, e.g. 'Meridian Logistics,
+                Inc.' - never relational variants like '... Inc. account'),
+                questions[].
 
         Returns:
             Dict with "decision" ("created" plus "finding_id", or "reject"

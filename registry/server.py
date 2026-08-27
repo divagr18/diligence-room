@@ -9,8 +9,8 @@ from __future__ import annotations
 import os
 
 from fastapi import FastAPI
-from google.cloud import firestore
 
+from memory.db import make_client
 from registry.api import create_app
 from registry.store import AgentRegistryStore
 
@@ -31,7 +31,7 @@ def _build_app() -> FastAPI:
             "live Firestore only. Unset the variable (or use the offline "
             "runbook) before starting the live demo."
         )
-    client = firestore.Client(project=_PROJECT_ID)
+    client = make_client(_PROJECT_ID)
     store = AgentRegistryStore(client)
     return create_app(store)
 

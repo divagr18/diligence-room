@@ -31,6 +31,7 @@ from agents.fleet import DEEP_WORKSTREAM_DOCUMENTS
 from evals.harness import run_harness
 from evals.legal_v25 import extractor_from_registry, publish_legal_v25
 from infra.bootstrap_gcp import _gcloud_executable
+from memory.db import make_client
 from memory.findings import FindingsStore
 from registry.seed import seed_registry
 from registry.store import AgentRegistryStore
@@ -108,7 +109,7 @@ def _finding_counts(client: firestore.Client, deal_id: str) -> dict[str, int]:
 def _run_beat(round_id: int) -> None:
     project = f"d12-m4-evidence-{round_id}"
     print(f"--- round {round_id} (project {project}) ---")
-    client = firestore.Client(project=project)
+    client = make_client(project)
     registry = AgentRegistryStore(client)
     seeded = seed_registry(registry, now=SEED_NOW)
     print(

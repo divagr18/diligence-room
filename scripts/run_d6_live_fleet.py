@@ -19,6 +19,7 @@ import sys
 from google.cloud import firestore
 
 from agents.tools.data_room_read import DocSource
+from memory.db import make_client
 
 # Vertex live-window env the operator must set before opening the window.
 # These are validated (validate_live_env) and deliberately NOT defaulted here:
@@ -112,14 +113,14 @@ async def _run_agent(
     return created
 
 
-async def _run_live(deal_id: str) -> int:
+async def _run_live(deal_id: str, only: str | None = None) -> int:
     from agents.tools.data_room_read import DatasetDocSource
     from gateway.policy import PolicyStore
     from registry.seed import seed_registry
     from registry.store import AgentRegistryStore
 
     project = os.environ["GOOGLE_CLOUD_PROJECT"]
-    client = firestore.Client(project=project)
+    client = make_client(project)
     store = AgentRegistryStore(client)
     seeded = seed_registry(store)
     print(f"[fleet] registry seeded (+{seeded}); total manifests={len(store.list_manifests())}")
@@ -127,8 +128,12 @@ async def _run_live(deal_id: str) -> int:
 
     publisher = _EventLogPublisher(client)
     doc_source = DatasetDocSource()
+    if only is not None and only not in _DEEP_TASKS:
+        print(f"[fleet] unknown agent_id {only!r}; expected one of {sorted(_DEEP_TASKS)}")
+        return 1
+    tasks = _DEEP_TASKS if only is None else {only: _DEEP_TASKS[only]}
     workstreams_ok = 0
-    for agent_id, (document_name, category) in _DEEP_TASKS.items():
+    for agent_id, (document_name, category) in tasks.items():
         try:
             created = await _run_agent(
                 client, publisher, doc_source, deal_id, agent_id, document_name, category
@@ -139,11 +144,11 @@ async def _run_live(deal_id: str) -> int:
         if created >= 1:
             workstreams_ok += 1
 
-    print(f"[fleet] deep workstreams with >=1 finding: {workstreams_ok}/4")
-    if workstreams_ok == 4:
+    print(f"[fleet] deep workstreams with >=1 finding: {workstreams_ok}/{len(tasks)}")
+    if workstreams_ok == len(tasks):
         print("[fleet] PASS")
         return 0
-    print(f"[fleet] FAIL ({workstreams_ok}/4 workstreams produced gated findings)")
+    print(f"[fleet] FAIL ({workstreams_ok}/{len(tasks)} workstreams produced gated findings)")
     return 1
 
 
@@ -152,6 +157,11 @@ def main(argv: list[str] | None = None) -> int:
         description="Day-6 live fleet check: real Flash agents from manifests."
     )
     parser.add_argument("--deal-id", default="deal-falcon")
+    parser.add_argument(
+        "--only",
+        default=None,
+        help="run a single agent_id (e.g. ip_tech) instead of the full fleet",
+    )
     parser.add_argument(
         "--confirm-live",
         action="store_true",
@@ -175,7 +185,7 @@ def main(argv: list[str] | None = None) -> int:
 
     import asyncio
 
-    return asyncio.run(_run_live(args.deal_id))
+    return asyncio.run(_run_live(args.deal_id, only=args.only))
 
 
 if __name__ == "__main__":

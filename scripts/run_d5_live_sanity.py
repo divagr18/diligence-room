@@ -46,7 +46,6 @@ async def _run_live(deal_id: str) -> int:
 
     from google.adk.agents import Agent
     from google.adk.runners import InMemoryRunner
-    from google.cloud import firestore
     from google.genai import types
 
     from agents.finance.prompts import SYSTEM_PROMPT as FINANCE_PROMPT
@@ -55,6 +54,7 @@ async def _run_live(deal_id: str) -> int:
     from gateway.decide import GatewayRequest, Verdict, decide
     from gateway.policy import PolicyStore
     from identity.principals import principal_for
+    from memory.db import make_client
     from registry.models import Workstream
 
     responder = OfflineFinanceResponder()
@@ -73,7 +73,7 @@ async def _run_live(deal_id: str) -> int:
         return {"value": render_aggregate(aggregate), "source": aggregate.source_document}
 
     project = os.environ["GOOGLE_CLOUD_PROJECT"]
-    client = firestore.Client(project=project)
+    client = make_client(project)
     PolicyStore(client).seed_defaults(deal_id)
 
     legal = principal_for(Workstream.LEGAL, deal_id)

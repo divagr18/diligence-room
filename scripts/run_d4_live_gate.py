@@ -85,12 +85,12 @@ def main(argv: list[str] | None = None) -> int:
         print("Refusing: missing live-window env: " + ", ".join(missing), file=sys.stderr)
         sys.exit(1)
 
-    from google.cloud import firestore
     from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
 
     from ingestion.classifier import FlashClassifier
     from ingestion.pipeline import IngestContext, ingest_blob
     from ingestion.sentinel import FakeSentinel, GemmaSentinel, SentinelModel
+    from memory.db import make_client
     from observability.tracing import setup_tracing, tracer_from
     from runtime.events import InMemoryPublisher
 
@@ -109,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
         sentinel = GemmaSentinel()
         print("sentinel_mode=gemma-live (hosted Gemini Developer API)")
     context = IngestContext(
-        client=firestore.Client(project=project),
+        client=make_client(project),
         publisher=InMemoryPublisher(),
         sentinel=sentinel,
         classifier=FlashClassifier(),

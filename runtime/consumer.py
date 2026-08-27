@@ -38,6 +38,7 @@ from google.cloud import firestore
 from gateway.audit import DealEventAuditLog
 from infra.data_room import PROJECT_ID, SUBSCRIPTION
 from infra.deploy.agent_engine import invoke_text, load_resource_name
+from memory.db import make_client
 from runtime.bucket_notify import BucketNotificationError, parse_notification
 from runtime.events import EventEnvelope
 
@@ -316,7 +317,7 @@ def main(argv: list[str] | None = None) -> int:
         source = FeedSource(payloads)
         invoker = EchoInvoker()
 
-    client = firestore.Client(project=PROJECT_ID)
+    client = make_client(PROJECT_ID)
     consumer = DealEventConsumer(
         client=client, source=source, invoker=invoker, audit=DealEventAuditLog(client)
     )

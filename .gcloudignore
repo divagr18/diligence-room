@@ -25,9 +25,10 @@ opencode.json
 
 # Non-runtime directories
 docs/evidence/
-data/
+data/scenarios/
 tests/
 scripts/
+dashboard/web/node_modules/
 
 # Non-runtime files
 BUILD_PLAN.md

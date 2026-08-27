@@ -53,6 +53,7 @@ def _run_live(deal_id: str) -> int:
     from ingestion.parsing import LocalParser
     from ingestion.pipeline import IngestContext, ingest_blob
     from ingestion.sentinel import FakeSentinel
+    from memory.db import make_client
     from observability.otel import ServiceName, build_provider
     from observability.trace_link import resolve
     from observability.tracing import tracer_from
@@ -60,7 +61,7 @@ def _run_live(deal_id: str) -> int:
     from runtime.events import InMemoryPublisher
 
     project = os.environ["GOOGLE_CLOUD_PROJECT"]
-    client = firestore.Client(project=project)
+    client = make_client(project)
 
     # Cloud Trace exporter behind BatchSpanProcessor; offline tests use the
     # in-memory seam, live swaps to the gcp exporter at the same interface.
