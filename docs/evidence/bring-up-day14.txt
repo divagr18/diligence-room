@@ -195,8 +195,20 @@ us-central1 Cloud Run + Agent Engine remain cached-deleted at end of
 day; EU serving is the live configuration (redeploy to us-central1 is
 one idempotent command each once that cache reconciles).
 
-D4 live window (hosted Gemma sentinel) skipped honestly: requires
-GOOGLE_API_KEY (AI Studio), not present in this environment.
+D4 live window ran on the DISCLOSED RED PATH (--offline-sentinel):
+  the supplied GOOGLE_API_KEY (prefix AQ.A...) was rejected by
+  generativelanguage.googleapis.com with API_KEY_INVALID (AI Studio keys
+  are AIza-prefixed); the deterministic sentinel tier stood in, Flash
+  classifier ran live (Vertex ADC). Mixed bundle 8 docs: contract +
+  financials suppressed (lineage dups of earlier live windows),
+  hr_roster/tech_inventory/vendor_agreement/memo routed live
+  (hr, ip_tech x3), scanned_invoice honest needs_ocr (no DocAI
+  processor - BUILD_PLAN red path), injection_probe tripwired; spans
+  flushed to Cloud Trace; 12 events appended (deal log 131 -> 143).
+  A full Gemma-live rerun
+  is one command once a valid AI Studio key is supplied:
+  scripts/run_d4_live_gate.py --deal-id deal-falcon --confirm-live
+  (env: DILIGENCE_GEMMA_ENABLED=1 + GOOGLE_API_KEY).
 
 Final gates at close: pytest 1103 passed; ruff clean; mypy clean
 (209 files); pre-commit (ruff/format/mypy/gitleaks) Passed.
