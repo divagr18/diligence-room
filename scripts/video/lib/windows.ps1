@@ -167,3 +167,56 @@ function Restart-CleanChrome {
     }
     Start-Sleep 2
 }
+
+function Set-WindowTopmost {
+    param([Parameter(Mandatory)][IntPtr]$Hwnd)
+    # HWND_TOPMOST (-1); SWP_NOSIZE|SWP_NOMOVE|SWP_SHOWWINDOW = 0x43
+    [void][VideoWin32.User32]::SetWindowPos($Hwnd, [IntPtr]::new(-1), 0, 0, 0, 0, 0x43)
+}
+
+function Clear-WindowTopmost {
+    param([Parameter(Mandatory)][IntPtr]$Hwnd)
+    # HWND_NOTOPMOST (-2)
+    [void][VideoWin32.User32]::SetWindowPos($Hwnd, [IntPtr]::new(-2), 0, 0, 0, 0, 0x43)
+}
+
+function Minimize-Window {
+    param([Parameter(Mandatory)][IntPtr]$Hwnd)
+    [void][VideoWin32.User32]::ShowWindow($Hwnd, 6)  # SW_MINIMIZE
+}
+
+function Clear-StageForRecording {
+    # Minimize every top-level window that is not part of the recording set,
+    # so desktop captures never catch the IDE or stray apps. Returns the hwnds
+    # it minimized (so they can be restored later).
+    param([string[]]$KeepTitleLikes = @())
+    $minimized = @()
+    foreach ($win in Get-TopLevelWindows) {
+        $keep = $false
+        foreach ($like in $KeepTitleLikes) { if ($win.Title -like "*$like*") { $keep = $true; break } }
+        if ($keep) { continue }
+        Minimize-Window -Hwnd $win.Hwnd
+        $minimized += $win.Hwnd
+    }
+    Start-Sleep -Milliseconds 700
+    return $minimized
+}
+
+function Restore-Minimized {
+    param([IntPtr[]]$Hwnds)
+    foreach ($h in $Hwnds) { [void][VideoWin32.User32]::ShowWindow($h, 9) }  # SW_RESTORE
+}
+
+function Hide-ImeIndicators {
+    # When the taskbar is parked, topmost IME indicator windows
+    # ("Default IME", "MSCTFIME UI") orphan and float over the frame bottom.
+    # Hide every one of them before a take; they respawn only on IME use.
+    $hidden = 0
+    foreach ($win in Get-TopLevelWindows) {
+        if ($win.Title -match "IME") {
+            [void][VideoWin32.User32]::ShowWindow($win.Hwnd, 0)  # SW_HIDE
+            $hidden++
+        }
+    }
+    return $hidden
+}
