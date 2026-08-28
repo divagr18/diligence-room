@@ -59,9 +59,13 @@ function Move-Taskbar {
     $tray = [VideoWin32.User32]::FindWindow("Shell_TrayWnd", $null)
     if ($tray -eq [IntPtr]::Zero) { return }
     if ($Action -eq "park") {
-        [void][VideoWin32.User32]::SetWindowPos($tray, [IntPtr]::Zero, 0, 1080, 1920, 48, 0)
+        # Hide outright (SW_HIDE) and also push below the 1080p edge as
+        # belt-and-suspenders so no sliver renders over captures.
+        [void][VideoWin32.User32]::ShowWindow($tray, 0)
+        [void][VideoWin32.User32]::SetWindowPos($tray, [IntPtr]::Zero, 0, 1440, 1920, 48, 0x4)
     } else {
-        [void][VideoWin32.User32]::SetWindowPos($tray, [IntPtr]::Zero, 0, 1032, 1920, 48, 0)
+        [void][VideoWin32.User32]::SetWindowPos($tray, [IntPtr]::Zero, 0, 1032, 1920, 48, 0x4)
+        [void][VideoWin32.User32]::ShowWindow($tray, 5)
     }
 }
 
@@ -113,4 +117,53 @@ function Start-StageChrome {
         "--no-default-browser-check",
         $Url
     )
+}
+
+function Clear-ChromeCrashState {
+    # A force-killed Chrome marks every profile exit_type=Crashed, which makes
+    # the next launch show the "Restore pages?" bubble (a recording artifact).
+    # Reset exit_type while Chrome is not running so launches come up clean.
+    $ud = Join-Path $env:LOCALAPPDATA "Google\Chrome\User Data"
+    Get-ChildItem $ud -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match "^(Default|Profile )" } |
+        ForEach-Object {
+            $p = Join-Path $_.FullName "Preferences"
+            if (-not (Test-Path $p)) { return }
+            try {
+                $j = Get-Content $p -Raw | ConvertFrom-Json
+                if ($j.profile) {
+                    $j.profile.exit_type = "Normal"
+                    $j.profile | Add-Member -NotePropertyName exited_cleanly -NotePropertyValue $true -Force
+                    $j | ConvertTo-Json -Depth 40 -Compress | Set-Content $p -Encoding utf8 -NoNewline
+                }
+            } catch {
+                Write-Host "[chrome] could not reset crash state in $p : $_"
+            }
+        }
+}
+
+function Restart-CleanChrome {
+    param(
+        [Parameter(Mandatory)][string]$Url,
+        [ValidateSet("app", "window", "fullscreen")][string]$Mode = "app",
+        [int]$X = 0, [int]$Y = 0, [int]$W = 1920, [int]$H = 1080
+    )
+    Get-Process chrome -ErrorAction SilentlyContinue | Stop-Process -Force
+    Start-Sleep -Milliseconds 1500
+    Clear-ChromeCrashState
+    $chrome = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+    $cargs = @("--disable-notifications", "--no-first-run", "--no-default-browser-check")
+    switch ($Mode) {
+        "app" { $cargs += "--app=$Url" }
+        "fullscreen" { $cargs += "--start-fullscreen"; $cargs += $Url }
+        "window" { $cargs += @("--new-window", "--window-position=$X,$Y", "--window-size=$W,$H"); $cargs += $Url }
+    }
+    Start-Process -FilePath $chrome -ArgumentList $cargs
+    $deadline = (Get-Date).AddSeconds(20)
+    while ((Get-Date) -lt $deadline) {
+        $procs = Get-Process chrome -ErrorAction SilentlyContinue
+        if ($procs) { break }
+        Start-Sleep -Milliseconds 300
+    }
+    Start-Sleep 2
 }
