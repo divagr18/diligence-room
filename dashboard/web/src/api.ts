@@ -246,20 +246,28 @@ export function documentUrl(documentId: string): string {
   return `/api/documents/${encodeURIComponent(documentId)}`;
 }
 
-export function useAsync<T>(fn: () => Promise<T>, deps: readonly unknown[] = []) {
+export function useAsync<T>(fn: () => Promise<T>, deps: readonly unknown[] = [], pollIntervalMs = 0) {
   const [state, setState] = useState<{ data?: T; error?: string; loading: boolean }>({
     loading: true,
   });
   useEffect(() => {
     let alive = true;
+    const run = () => {
+      fn()
+        .then((data) => alive && setState({ data, loading: false }))
+        .catch((err: unknown) =>
+          alive && setState({ error: err instanceof Error ? err.message : String(err), loading: false }),
+        );
+    };
     setState({ loading: true });
-    fn()
-      .then((data) => alive && setState({ data, loading: false }))
-      .catch((err: unknown) =>
-        alive && setState({ error: err instanceof Error ? err.message : String(err), loading: false }),
-      );
+    run();
+    let timer: number | undefined;
+    if (pollIntervalMs > 0) {
+      timer = window.setInterval(run, pollIntervalMs);
+    }
     return () => {
       alive = false;
+      if (timer !== undefined) window.clearInterval(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);

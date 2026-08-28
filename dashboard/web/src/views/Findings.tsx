@@ -8,7 +8,7 @@ const STATUS_FILTERS = ["all", "open", "validated", "resolved"] as const;
 
 export default function Findings() {
   const navigate = useNavigate();
-  const { data, error, loading } = useAsync(api.findings, []);
+  const { data, error, loading } = useAsync(api.findings, [], 2000);
   const [severity, setSeverity] = useState<(typeof SEVERITY_FILTERS)[number]>("all");
   const [status, setStatus] = useState<(typeof STATUS_FILTERS)[number]>("all");
 

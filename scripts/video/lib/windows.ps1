@@ -10,6 +10,10 @@ Add-Type -Namespace VideoWin32 -Name User32 -MemberDefinition @'
 [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr hwnd, System.Text.StringBuilder s, int n);
 [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc cb, IntPtr l);
 public delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr l);
+[DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+[DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+[DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
 '@
 
 $script:SWP_NOZORDER = 0x4
@@ -47,6 +51,31 @@ function Set-WindowRect {
 function Invoke-WindowFocus {
     param([Parameter(Mandatory)][IntPtr]$Hwnd)
     [void][VideoWin32.User32]::SetForegroundWindow($Hwnd)
+}
+
+function Focus-WindowForInput {
+    # Robustly give a window keyboard focus. Windows blocks SetForegroundWindow
+    # from background callers; the Alt keypress + AttachThreadInput combo
+    # releases the foreground lock so SendKeys actually reaches the window.
+    param([Parameter(Mandatory)][IntPtr]$Hwnd)
+    [void][VideoWin32.User32]::ShowWindow($Hwnd, 5)  # SW_SHOW
+    # Tap Alt to clear the foreground-lock timeout.
+    [VideoWin32.User32]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero)   # Alt down
+    [VideoWin32.User32]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero)   # Alt up
+    $null = $null
+    $procId = [uint32]0
+    $targetThread = [VideoWin32.User32]::GetWindowThreadProcessId($Hwnd, [ref]$procId)
+    $myThread = [VideoWin32.User32]::GetCurrentThreadId()
+    if ($targetThread -ne 0 -and $targetThread -ne $myThread) {
+        [void][VideoWin32.User32]::AttachThreadInput($myThread, $targetThread, $true)
+        [void][VideoWin32.User32]::SetForegroundWindow($Hwnd)
+        [void][VideoWin32.User32]::AttachThreadInput($myThread, $targetThread, $false)
+    } else {
+        [void][VideoWin32.User32]::SetForegroundWindow($Hwnd)
+    }
+    Start-Sleep -Milliseconds 250
+    $fg = [VideoWin32.User32]::GetForegroundWindow()
+    return ($fg -eq $Hwnd)
 }
 
 function Set-WindowMaximized {
@@ -168,6 +197,30 @@ function Restart-CleanChrome {
     Start-Sleep 2
 }
 
+function Start-IsolatedChrome {
+    # Open a Chrome app window in a SEPARATE profile so the user's own Chrome
+    # (and its tabs/login state) is never killed or touched. Returns nothing;
+    # find the window afterwards via Find-WindowByTitle on the page title.
+    param(
+        [Parameter(Mandatory)][string]$Url,
+        [int]$X = 0, [int]$Y = 0, [int]$W = 1920, [int]$H = 1080
+    )
+    $chrome = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+    $profile = Join-Path $env:LOCALAPPDATA "diligence_video_chrome_profile"
+    $cargs = @(
+        "--user-data-dir=$profile",
+        "--app=$Url",
+        "--window-position=$X,$Y",
+        "--window-size=$W,$H",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-notifications",
+        "--disable-session-crashed-bubble"
+    )
+    Start-Process -FilePath $chrome -ArgumentList $cargs
+    Start-Sleep 4
+}
+
 function Set-WindowTopmost {
     param([Parameter(Mandatory)][IntPtr]$Hwnd)
     # HWND_TOPMOST (-1); SWP_NOSIZE|SWP_NOMOVE|SWP_SHOWWINDOW = 0x43
@@ -216,6 +269,23 @@ function Hide-ImeIndicators {
         if ($win.Title -match "IME") {
             [void][VideoWin32.User32]::ShowWindow($win.Hwnd, 0)  # SW_HIDE
             $hidden++
+        }
+    }
+    return $hidden
+}
+
+function Hide-SystemFlyouts {
+    # Topmost tray flyouts (Battery Meter, Network Flyout, etc.) ignore
+    # SW_MINIMIZE and float over captures; hide them by title pattern.
+    $patterns = @("*Battery*", "*Network Flyout*", "*Clock*", "*Volume*", "*Action Center*", "*Calendar*")
+    $hidden = 0
+    foreach ($win in Get-TopLevelWindows) {
+        foreach ($p in $patterns) {
+            if ($win.Title -like $p) {
+                [void][VideoWin32.User32]::ShowWindow($win.Hwnd, 0)  # SW_HIDE
+                $hidden++
+                break
+            }
         }
     }
     return $hidden

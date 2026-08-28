@@ -26,12 +26,12 @@ Day 11 work.
 from __future__ import annotations
 
 import os
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from google.cloud import firestore
 
 from agents.negotiation.drafts import (
@@ -180,6 +180,18 @@ def create_app(
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def _no_store_api(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        # The live dashboard polls /api/*; never let a browser cache a stale
+        # reading or the poll silently freezes on the first (possibly empty)
+        # response.
+        response = await call_next(request)
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
     def _negotiation_client() -> firestore.Client:
         if live_client is None:

@@ -15,8 +15,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repo = Resolve-Path "$PSScriptRoot/../.."
-$takes = Join-Path $repo "docs/video/takes"
-$work = Join-Path $repo "docs/video/final/work"
+# Honor $env:DILIGENCE_VIDEO_DIR so assembly can run on a drive with free space.
+$videoBase = if ($env:DILIGENCE_VIDEO_DIR) { (Resolve-Path $env:DILIGENCE_VIDEO_DIR).Path } else { Join-Path $repo "docs/video" }
+if ($Selection -match [regex]::Escape("$PSScriptRoot")) { $Selection = Join-Path $videoBase "takes/selection.json" }
+if ($Out -match [regex]::Escape("$PSScriptRoot")) { $Out = Join-Path $videoBase "final/diligence-room-demo.mp4" }
+if ($CardsDir -match [regex]::Escape("$PSScriptRoot")) { $CardsDir = Join-Path $videoBase "cards" }
+$takes = Join-Path $videoBase "takes"
+$work = Join-Path $videoBase "final/work"
 New-Item -ItemType Directory -Force -Path $work | Out-Null
 $CardsDir = Resolve-Path $CardsDir
 
@@ -54,9 +59,13 @@ foreach ($b in ($sel.beats | Sort-Object beat)) {
         $cscale = if ($sel.cameo.scale) { $sel.cameo.scale } else { "560:315" }
         $cstart = [Math]::Max(0, $b.dur - 10)
         $vf = "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,fps=30,format=yuv420p[base]"
-        $vf += ";[2:v]scale=$cscale,format=yuv420p[cam]"
+        # Shift the cameo's timestamps so its first frame lines up with the
+        # moment it appears ($cstart), then hard-cap the segment to dur so a
+        # longer cameo can never stretch the beat.
+        $vf += ";[2:v]scale=$cscale,fps=30,format=yuv420p,setpts=PTS+($cstart)/TB[cam]"
         $vf += ";[base][1:v]overlay=0:0:enable='lt(t,2.5)'[ovl]"
-        $vf += ";[ovl][cam]overlay=x=W-w-24:y=H-h-24:enable='gte(t,$cstart)'[fin]"
+        $vf += ";[ovl][cam]overlay=x=W-w-24:y=H-h-24:enable='gte(t,$cstart)'[fin0]"
+        $vf += ";[fin0]trim=duration=$($b.dur),setpts=PTS-STARTPTS[fin]"
         $fargs = @("-hide_banner", "-loglevel", "error", "-y",
             "-ss", "$($b.in)", "-t", "$($b.dur)", "-i", $src,
             "-i", $lt, "-i", $csrc,
