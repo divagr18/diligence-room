@@ -37,3 +37,8 @@ Thumbs.db
 dashboard/web/node_modules/
 dashboard/web/dist/
 dashboard/web/.qa/
+
+# Video recording artifacts (takes/QA frames/final cut stay untracked)
+docs/video/takes/
+docs/video/qa/
+docs/video/final/
