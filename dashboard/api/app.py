@@ -51,16 +51,18 @@ from dashboard.api.models import (
     AgentOut,
     ApproveRequest,
     DealBundle,
+    EvidenceItem,
     FindingDetail,
     FindingListItem,
     NegotiationDraftOut,
     NegotiationDraftRequest,
     SecurityBundle,
+    TraceStep,
 )
 from identity.human_authz import Role, can_view
 from memory.db import make_client
 from memory.event_log import EventLog, EventLogPublisher
-from memory.findings import FindingNotFoundError, FindingStatus
+from memory.findings import Finding, FindingNotFoundError, FindingsStore, FindingStatus
 from registry.models import AgentManifest, Workstream
 
 
@@ -72,6 +74,87 @@ class _ViewableRow:
 
 def _visible(role: Role, workstream: str, status: str) -> bool:
     return can_view(role, _ViewableRow(Workstream(workstream), FindingStatus(status)))
+
+
+_SEVERITY_RANK: dict[str, int] = {
+    "critical": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 3,
+    "informational": 4,
+}
+
+
+def _live_finding_item(finding: Finding) -> FindingListItem:
+    return FindingListItem(
+        finding_id=finding.finding_id,
+        title=finding.title,
+        severity=finding.severity.value,
+        workstream=finding.workstream.value,
+        owner=finding.owner,
+        confidence=finding.confidence,
+        status=finding.status.value,
+        documents=len(finding.source_documents),
+        created_at=finding.created_at.isoformat(),
+        updated_at=finding.updated_at.isoformat(),
+    )
+
+
+def _live_finding_detail(finding: Finding, store: FindingsStore) -> FindingDetail:
+    """Map a live Firestore Finding into the dashboard detail DTO.
+
+    Contributing agents are derived from the related findings' owners (the
+    coordinator synthesis links its four workstream contributors); a finding
+    with no links lists its own owner. The graph stays demo-only (None).
+    """
+    contributors: list[str] = []
+    for related_id in finding.related_findings:
+        try:
+            contributors.append(store.get(finding.deal_id, related_id).owner)
+        except FindingNotFoundError:
+            continue
+    if not contributors:
+        contributors = [finding.owner]
+    created = finding.created_at.isoformat()
+    trace = [
+        TraceStep(
+            ts=created,
+            stage="evidence",
+            actor=finding.owner,
+            detail=(
+                f"{len(finding.evidence)} evidence span(s) verified against parsed source "
+                "at write time"
+            ),
+        ),
+        TraceStep(ts=created, stage="finding", actor=finding.owner, detail=finding.title),
+    ]
+    base = _live_finding_item(finding)
+    return FindingDetail(
+        **base.model_dump(),
+        summary=finding.summary,
+        evidence=[
+            EvidenceItem(
+                verbatim_span=e.verbatim_span, document_id=e.document_id, chunk_ref=e.chunk_ref
+            )
+            for e in finding.evidence
+        ],
+        source_documents=list(finding.source_documents),
+        affected_entities=list(finding.affected_entities),
+        contributing_agents=contributors,
+        related_findings=list(finding.related_findings),
+        questions=list(finding.questions),
+        trace=trace,
+        graph=None,
+    )
+
+
+def _live_finding_items(client: firestore.Client, deal_id: str) -> list[FindingListItem]:
+    store = FindingsStore(client)
+    items: list[FindingListItem] = []
+    for workstream in Workstream:
+        items.extend(_live_finding_item(f) for f in store.list_for_workstream(deal_id, workstream))
+    items.sort(key=lambda item: (_SEVERITY_RANK.get(item.severity, 9), item.created_at))
+    return items
 
 
 def create_app(
@@ -136,12 +219,23 @@ def create_app(
 
     @app.get("/api/findings", response_model=list[FindingListItem])
     def findings(role: Role = Role.DEAL_LEAD) -> list[FindingListItem]:
-        items = data.build_findings()
+        if live_client is not None:
+            items = _live_finding_items(live_client, data.DEAL_ID)
+        else:
+            items = data.build_findings()
         return [item for item in items if _visible(role, item.workstream, item.status)]
 
     @app.get("/api/findings/{finding_id}", response_model=FindingDetail)
     def finding_detail(finding_id: str, role: Role = Role.DEAL_LEAD) -> FindingDetail:
-        detail = data.build_finding_detail(finding_id)
+        detail: FindingDetail | None = None
+        if live_client is not None:
+            store = FindingsStore(live_client)
+            try:
+                detail = _live_finding_detail(store.get(data.DEAL_ID, finding_id), store)
+            except FindingNotFoundError:
+                detail = None
+        if detail is None:
+            detail = data.build_finding_detail(finding_id)
         if detail is None or not _visible(role, detail.workstream, detail.status):
             raise HTTPException(status_code=404, detail=f"finding {finding_id!r} not found")
         return detail
