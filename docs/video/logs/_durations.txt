@@ -1,0 +1,7 @@
+beat23_take1       80.000000 s
+beat0_take3        36.000000 s
+beat1_take2        30.000000 s
+beat4_take3        44.000000 s
+beat5_take2        29.966000 s
+beat6_take6        29.000000 s
+beat7_take2        30.000000 s

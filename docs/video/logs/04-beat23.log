@@ -1,0 +1,10 @@
+=== [04-beat23] START 16:29:04 ===
+[beat3] process-visible screen: 1536x864; half=768
+[beat3] clearing leftovers from any previous take
+[beat3] staging windows
+[beat3] dashboard staged: Diligence Room - Project Falcon - Google Chrome
+[beat3] rolling 80 s -> D:\dr\docs\video\takes\beat23_take1.mkv
+True
+[beat3] capture done (exit 0)
+[beat3] D:\dr\docs\video\takes\beat23_take1.mkv duration=80.000000
+=== [04-beat23] EXIT 0 at 16:30:41 ===

@@ -4,10 +4,9 @@ The README is content, not code, so its "test" is a checklist assertion
 (doctrine §1): ``README.md`` exists at the repo root and carries the v1
 shape — hero image linking the ``docs/diagram`` architecture SVG (plus the
 ``.png`` export and ``.mmd`` source), quickstart (``uv sync``,
-``infra/bootstrap_gcp.py``, ``uv run pytest``, dashboard build), credentials
-(ADC via ``gcloud auth application-default login``), a stack table naming the
-platform (FastAPI, ADK, Firestore, Pub/Sub, Cloud Run, Model Armor, Cloud
-Trace), the Apache-2.0 license, and an evaluation section pointing at
+``infra/bootstrap_gcp.py``, ``uv run pytest``, dashboard build), a stack table
+naming the platform (FastAPI, ADK, Firestore, Pub/Sub, Cloud Run, Model Armor,
+Cloud Trace), the Apache-2.0 license, and an evaluation section pointing at
 ``evals/`` (20-doc golden set + strict-exact harness + 20-attack ledger).
 No lorem filler.
 """
@@ -79,12 +78,6 @@ def test_quickstart_commands() -> None:
     quickstart = _section(_read(), "Quickstart")
     for command in QUICKSTART_COMMANDS:
         assert command in quickstart, f"quickstart misses `{command}`"
-
-
-def test_credentials_section() -> None:
-    credentials = _section(_read(), "Credentials")
-    assert "Application Default Credentials" in credentials, "ADC not named"
-    assert "gcloud auth application-default login" in credentials
 
 
 def test_stack_table_lists_the_platform() -> None:

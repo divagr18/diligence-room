@@ -1,0 +1,124 @@
+Submission compliance audit — Fortified Enterprise Fleet (2026-08-29)
+=====================================================================
+
+Checked against allthingsagentichackathon.devpost.com (overview, /rules,
+/resources). Every line below was verified by running something, not by
+reading the repo.
+
+STAGE ONE — PASS/FAIL REQUIREMENTS
+----------------------------------
+[PASS] Gemini 3.5 or newer via Gemini API or Vertex AI
+       ingestion/classifier.py FLASH_MODEL_ID = "gemini-3.5-flash"
+       Live call through Vertex (GOOGLE_GENAI_USE_VERTEXAI=TRUE,
+       GOOGLE_CLOUD_LOCATION=global) against the Meridian termination clause:
+         doc_type=contract_clause  workstream=legal  confidence=0.95
+         reasons: model-written, naming "Termination Right", "Change of
+         Control", "ninety (90) days"
+       agents/base_agent.py MODEL_ID = "gemini-3.5-flash" for all workstream
+       agents and the deployed Agent Engine agent.
+
+[PASS] At least one Google Agent Framework
+       google-adk>=1.5.0 in pyproject.toml; agents/base_agent.py imports
+       `from google.adk.agents import Agent`.
+
+[PASS] At least one Google Cloud infrastructure service
+       Cloud Run (4 services, 2 regions), Firestore (2 databases),
+       Pub/Sub (deal-events topic + subscription). All live.
+
+[PASS] Newly created during the Submission Period (Aug 3 - Aug 31 2026)
+       Project created 2026-08-14.
+
+[PASS] Hosted project URL, free and unrestricted for judges
+       https://diligence-room-dashboard-378831539922.asia-south1.run.app
+       https://gateway-378831539922.asia-south1.run.app
+       Both --allow-unauthenticated; verified 200 with no credentials.
+       /api/findings -> 5 findings, /api/registry -> 8 agents.
+
+[PASS] Architecture diagram
+       docs/diagram/architecture.svg (+ .png, .mmd source).
+
+[PASS] Spin-up instructions in README.md
+       Quickstart section: uv sync, bootstrap, tests, dashboard build, deploy.
+
+[PASS] Demo video <= 4 minutes with English subtitles
+       docs/video/final/diligence-room-demo.mp4, 239.53s (3:59.5),
+       1920x1080, captions burned in.
+
+[PASS] Video shows backend running on Google Cloud
+       run.app URL in the address bar through every dashboard beat; beat 7 is
+       Logs Explorer (resource.type="cloud_run_revision") beside Cloud Trace
+       showing real /api/negotiation spans.
+
+[PASS] Video shows unedited live execution
+       Beats 2+3 are one continuous 80s take: dashboard empty (0 findings)
+       before, 5 findings after, terminal report 49 events / deterministic.
+
+[FAIL] Code repository accessible to judges
+       github.com/divagr18/diligence-room is PRIVATE.
+       Collaborators: divagr18 only. Pending invitations: none.
+       The rules require private repos to grant access to
+       testing@devpost.com and cloudhackathons@google.com.
+       Judges currently cannot open the repository at all.
+
+[FAIL] Repository content is current
+       Remote last pushed 2026-08-28T13:45:05Z, default branch main.
+       None of the 2026-08-29 work is on it: the project rebuild, the live
+       Gemma 4 fix, the video tooling, the infra parameterisation fixes, or
+       the corrected hosted URLs in README.md and docs/submission.md.
+       The working copy D:\\dr lost its .git internals during the move, so
+       nothing today has been committed anywhere.
+
+[OPEN] Demo video not uploaded
+       docs/submission.md still reads "Demo video: VIDEO LINK". Must be
+       public on YouTube or Vimeo with the link on the submission form.
+
+SECRET HYGIENE (checked before recommending the repo go public)
+---------------------------------------------------------------
+  .env is NOT tracked on the remote (contents API returns 404).
+  .gitignore lines 18-19 cover .env and .env.*
+  No AIza-shaped strings anywhere outside .env.
+  The Gemma API key minted today lives only in the local .env.
+
+FORTIFIED ENTERPRISE FLEET COMPONENTS
+-------------------------------------
+  Agent Registry ......... registry/ — 8 versioned manifests, live in
+                           Firestore, served by /api/registry (reads the live
+                           store per request as of today's fix).
+  Agent Runtime .......... runtime/ + Vertex AI Agent Engine
+                           reasoningEngines/7141202128323739648, async invoke
+                           verified.
+  Memory Bank ............ Firestore partitions org/deal/workstream with an
+                           append-only event log. NOTE: this is Firestore, not
+                           the GEAP "Memory Bank" product. The capability the
+                           track asks for (persistent cross-session context
+                           over extended timelines) is met; the branded
+                           component is not used. Worth stating plainly in the
+                           submission rather than letting a judge find it.
+  Agent Identity ......... identity/ — per-workstream principals, zero-trust
+                           agent-to-data authz.
+  Agent Gateway .......... gateway/ — deny-by-default policy engine, live on
+                           Cloud Run, POST /gateway/decide.
+  Model Armor ............ live template
+                           projects/diligence-room-live/locations/us-central1/
+                           templates/diligence-room-live-armor
+                           verified blocking: armor:pi_and_jailbreak.
+  Agent Observability .... OpenTelemetry GenAI spans to Cloud Trace;
+                           43 traces in a 6-hour window; span waterfall for
+                           /api/negotiation/drafts visible in Trace explorer.
+
+STAGE THREE — BONUS
+-------------------
+  [EARNED]  Additional Google AI model: Gemma 4 (gemma-4-26b-a4b-it),
+            verified live — see gemma-live.txt. +0.2
+  [PENDING] Blog post — draft at docs/blog/draft.md, not published. +0.2
+  [PENDING] Social post with #AllThingsAgenticHackathon. +0.2
+
+AVAILABILITY DURING JUDGING — A CONTRADICTION WORTH KNOWING
+-----------------------------------------------------------
+  The rules state the Project must be available "free of charge and without
+  any restriction, for testing, evaluation and use ... until the Judging
+  Period ends" (Sept 1 - Oct 1 2026).
+  The overview page separately suggests deployed apps need not stay live, for
+  cost management. These conflict. The safe reading is the rules: keep the
+  services up until Oct 1. Cost is low — Cloud Run scales to zero and the
+  budget cap is $170 with alerts at 50/80/100%.

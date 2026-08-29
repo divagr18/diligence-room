@@ -1,0 +1,10 @@
+=== [01-reset-all] START 16:28:48 ===
+[reset] deal-falcon: deleted 1 from _deal_document
+[reset] deal-falcon: deleted 60 from documents
+[reset] deal-falcon: deleted 122 from events
+[reset] deal-falcon: deleted 5 from findings
+[reset] deal-falcon: deleted 1 from inbox
+[reset] deal-falcon: deleted 40 from quarantined
+[reset] deal-falcon: deleted 0 from workstreams
+[reset] registry: deleted 17 documents
+=== [01-reset-all] EXIT 0 at 16:28:57 ===

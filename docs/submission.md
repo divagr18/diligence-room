@@ -35,8 +35,8 @@ AI Agent Engine (deployed ADK agent), Firestore (partitioned memory + event
 log), Pub/Sub (event bus), Model Armor (managed screening), Cloud KMS + DLP
 (compliance plane), Cloud Trace (OpenTelemetry GenAI spans).
 
-- Hosted dashboard: https://diligence-room-dashboard-910285417505.europe-west1.run.app
-- Hosted gateway: https://gateway-910285417505.europe-west1.run.app
+- Hosted dashboard: https://diligence-room-dashboard-378831539922.asia-south1.run.app
+- Hosted gateway: https://gateway-378831539922.asia-south1.run.app
 - Repository: https://github.com/divagr18/diligence-room
 - Demo video: VIDEO LINK (added at submission; ≤4 min, English)
 
@@ -68,7 +68,7 @@ caught by the shadow harness, and rolled back to 2.4.0 with memory intact.
 ### Core Execution & State (Agent Runtime + Memory Bank)
 
 Long-running asynchronous execution on Vertex AI Agent Engine (deployed
-resource `projects/910285417505/locations/europe-west1/reasoningEngines/1322008800772751360`,
+resource `projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648`,
 async invoke verified). Persistent cross-session context in Firestore
 partitions `org / deal / workstream` with an append-only event log (143
 audited events live) and crash-resume checkpoints. A restarted run creates no
@@ -183,9 +183,12 @@ scenario. No real company data, no real PII.
   claiming this bonus.
 - Social post: publish publicly with `#AllThingsAgenticHackathon`, then add
   the final post URL to the submission form before claiming this bonus.
-- Additional Google AI model integrated: Gemma ingestion sentinel
-  (`ingestion/sentinel.py`, live evidence in
-  [`evidence/d4-live-gate.txt`](evidence/d4-live-gate.txt)).
+- Additional Google AI model integrated: **Gemma 4** ingestion sentinel,
+  `gemma-4-26b-a4b-it` (`ingestion/sentinel.py`). Verified live: it classifies
+  the Meridian termination clause as `contract` at 0.98 confidence with a
+  model-written rationale, and tripwires a direct prompt injection. Evidence in
+  [`evidence/gemma-live.txt`](evidence/gemma-live.txt), which also records that
+  the recorded replay path uses the deterministic sentinel tier for timing.
 
 ## Spin-up instructions
 

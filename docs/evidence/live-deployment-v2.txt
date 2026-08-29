@@ -1,0 +1,119 @@
+Live deployment evidence — project rebuild (2026-08-29)
+=======================================================
+
+WHY A REBUILD
+-------------
+The original project `diligence-room` (910285417505) entered a
+"cached-deleted" state: `gcloud projects describe` reports
+lifecycleState ACTIVE, but every Cloud Run WRITE is rejected with
+
+    PERMISSION_DENIED: denied: Project #910285417505 has been deleted
+
+Reads still worked (Firestore, Pub/Sub, Artifact Registry). Both Cloud Run
+services had failed revisions (ContainerImageImportFailed / "Image not
+found") because their Artifact Registry images had been purged, and traffic
+could not be re-pinned to a healthy revision because update-traffic is
+itself a write. This is the same condition `live-deployment.txt` recorded
+for us-central1 on Day 14; by 2026-08-29 it covered europe-west1 too.
+Reconciliation is Google-side and unbounded, so the stack was rebuilt in a
+new project.
+
+NEW PROJECT
+-----------
+  project id     diligence-room-live
+  project number 378831539922
+  billing        012D4F-261885-E006CE (slot freed by unlinking the old project)
+  budget         diligence-room-live-hard-cap, thresholds 50/80/100%
+  services       34 enabled
+
+LIVE ENDPOINTS (both serving 100% of traffic)
+---------------------------------------------
+  dashboard  https://diligence-room-dashboard-378831539922.us-central1.run.app
+  gateway    https://gateway-378831539922.us-central1.run.app
+
+  /api/health   -> {"status":"ok","deal":"deal-falcon"}
+  /api/registry -> 8 agents from live Firestore (legal 2.4.0 gemini-3.5-flash ...)
+  /api/findings, /api/security, / (SPA) -> 200
+  gateway /health -> {"status":"ok","service":"gateway"}
+
+VERTEX AI AGENT ENGINE
+----------------------
+  projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648
+  async invoke -> Session 8793889635265675264
+  response 'The echoed text is: diligence-room-day1-smoke' — PASS
+
+FIRESTORE
+---------
+  projects/diligence-room-live/databases/diligence (nam5, FIRESTORE_NATIVE)
+  registry seeded: 8 manifests
+
+PUB/SUB + DATA ROOM
+-------------------
+  topic deal-events, subscription deal-events-sub
+  gs://diligence-room-live-dataroom-deal-falcon-us (us-central1)
+  gs://diligence-room-live-dataroom-deal-falcon-eu (europe-west1)
+  OBJECT_FINALIZE notification on both buckets -> deal-events
+  roles/pubsub.publisher granted to the GCS service agent
+
+COMPLIANCE PLANE
+----------------
+  KMS us-central1: keyRings/diligence-room-us/cryptoKeys/deal-falcon-primary
+  KMS europe-west1: keyRings/diligence-room-eu/cryptoKeys/deal-falcon-primary
+  (both 90d rotation)
+  Model Armor template
+    projects/diligence-room-live/locations/us-central1/templates/diligence-room-live-armor
+    verified: managed verdict blocked=True reason armor:pi_and_jailbreak;
+    combined (project rules + managed) blocked=True rule injection.ignore_variants
+    NOTE: the first sanitize() after create returned blocked=False — the
+    template needs ~1 min to propagate before it filters.
+  guardrails: audit configs applied to datastore + storage
+    (ADMIN_READ/DATA_READ/DATA_WRITE); zero service-account keys;
+    org-scope constraints unavailable (no organization node — documented deviation)
+
+LIVE REPLAY (the beat-3 path)
+-----------------------------
+  scripts/video/replay_cli.py gained --live (opt-in; refuses if
+  FIRESTORE_EMULATOR_HOST is set, and defaults to its own deal namespace).
+
+  run: --live (deal-falcon-demo)
+    run_id=replay-bdd640fb0667  events_injected=49  findings_created=5
+    deterministic=True  wall_clock=262.33s
+
+  TIMING CONSEQUENCE: against live Firestore the replay takes ~262s versus
+  ~1-2s on the emulator (the gap is per-write network latency, not the
+  pacing seam — raising --speed cannot remove it). The locked 65s beat-3
+  budget therefore cannot contain a whole live replay; the take has to be a
+  65s window of it.
+
+  Cosmetic defect found: replay_cli.format_report hardcodes the string
+  "(<240s budget)" onto duration_s, so it printed "262.33 (<240s budget)".
+
+FIXES MADE DURING THE REBUILD
+-----------------------------
+  infra/bootstrap_gcp.py   staging bucket + budget names now derive from
+                           --project (were pinned to the default project id,
+                           so a rebuild silently adopted another project's
+                           globally-unique bucket name); added
+                           cloudbuild + artifactregistry to REQUIRED_SERVICES
+                           (Cloud Run --source deploys fail SERVICE_DISABLED
+                           without them).
+  infra/data_room.py       project id and the globally-unique bucket prefix
+                           now follow DILIGENCE_PROJECT_ID.
+  infra/deploy/agent_engine.py
+                           PROJECT_ID follows DILIGENCE_PROJECT_ID /
+                           GOOGLE_CLOUD_PROJECT.
+
+  Also observed: data_room.py's IAM grant fails on a brand-new project
+  because the GCS service agent does not exist until first use. Running
+  `gcloud storage service-agent --project=<p>` materialises it; the script
+  should do this before the binding.
+
+ENVIRONMENT NOTE (not a code defect)
+------------------------------------
+  `import vertexai` failed with an ImportError that looks like a circular
+  import in aiplatform's trainingjob schema. Root cause was Windows
+  MAX_PATH: the full path to
+  ...definition_v1beta1/types/export_evaluated_data_items_config.py
+  was 261 characters, one over the 260 limit, so Python could not open the
+  file while os.listdir still reported it. Relocating the checkout to a
+  short path (D:\dr) resolved it. Unchanged aiplatform version.

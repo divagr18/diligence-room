@@ -203,13 +203,17 @@ function Start-IsolatedChrome {
     # find the window afterwards via Find-WindowByTitle on the page title.
     param(
         [Parameter(Mandatory)][string]$Url,
-        [int]$X = 0, [int]$Y = 0, [int]$W = 1920, [int]$H = 1080
+        [int]$X = 0, [int]$Y = 0, [int]$W = 1920, [int]$H = 1080,
+        # App mode hides the address bar. The hackathon rules ask for the
+        # .run URL to be visible, so recordings use -Windowed.
+        [switch]$Windowed
     )
     $chrome = "C:\Program Files\Google\Chrome\Application\chrome.exe"
     $profile = Join-Path $env:LOCALAPPDATA "diligence_video_chrome_profile"
+    $mode = if ($Windowed) { @("--new-window", $Url) } else { @("--app=$Url") }
     $cargs = @(
-        "--user-data-dir=$profile",
-        "--app=$Url",
+        "--user-data-dir=$profile"
+    ) + $mode + @(
         "--window-position=$X,$Y",
         "--window-size=$W,$H",
         "--no-first-run",
@@ -289,4 +293,71 @@ function Hide-SystemFlyouts {
         }
     }
     return $hidden
+}
+
+function Resolve-Ffmpeg {
+    # Start-Process resolves against the Windows PATH, which is not always what
+    # the calling shell exported. Resolve to an absolute path once and fail
+    # loudly instead of throwing a bare Win32Exception mid-take.
+    param([string]$Name = "ffmpeg")
+    $cmd = Get-Command $Name -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    foreach ($candidate in @(
+        "C:fmpegin\$Name.exe",
+        "C:\Program Filesfmpegin\$Name.exe"
+    )) {
+        if (Test-Path $candidate) { return $candidate }
+    }
+    throw "$Name not found on PATH or in C:fmpegin - add it before recording"
+}
+
+function Clear-IsolatedChromeCrashState {
+    # The recording profile is force-killed between takes, which marks it
+    # exit_type=Crashed and brings up the restore bubble on the next launch.
+    # Clear-ChromeCrashState only covers the user's default profile.
+    $root = Join-Path $env:LOCALAPPDATA "diligence_video_chrome_profile"
+    if (-not (Test-Path $root)) { return }
+    Get-ChildItem $root -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match "^(Default|Profile )" } |
+        ForEach-Object {
+            $prefs = Join-Path $_.FullName "Preferences"
+            if (-not (Test-Path $prefs)) { return }
+            try {
+                $j = Get-Content $prefs -Raw | ConvertFrom-Json
+                if ($j.profile) {
+                    $j.profile.exit_type = "Normal"
+                    $j.profile | Add-Member -NotePropertyName exited_cleanly -NotePropertyValue $true -Force
+                    $j | ConvertTo-Json -Depth 40 -Compress | Set-Content $prefs -Encoding utf8 -NoNewline
+                }
+            } catch {
+                Write-Host "[chrome] could not reset isolated crash state: $_"
+            }
+        }
+}
+
+function Close-IsolatedChrome {
+    # Ask the recording profile's windows to close, then force only what is
+    # left. Killing outright is what corrupts the profile between takes.
+    $procs = @(Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" |
+        Where-Object { $_.CommandLine -like "*diligence_video_chrome_profile*" })
+    if (-not $procs) { return }
+    foreach ($p in $procs) {
+        # A Chrome child can exit between the query and this call; touching
+        # MainWindowHandle on an exited process throws InvalidOperationException
+        # and aborts the take.
+        try {
+            $handle = Get-Process -Id $p.ProcessId -ErrorAction SilentlyContinue
+            if ($handle -and -not $handle.HasExited -and $handle.MainWindowHandle -ne 0) {
+                [void]$handle.CloseMainWindow()
+            }
+        } catch {
+            # already gone; nothing to close
+        }
+    }
+    Start-Sleep 2
+    foreach ($p in $procs) {
+        try { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue } catch { }
+    }
+    Start-Sleep 1
+    Clear-IsolatedChromeCrashState
 }

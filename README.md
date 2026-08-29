@@ -23,11 +23,11 @@ Cloud Trace.
 
 | | |
 |---|---|
-| Hosted dashboard | https://diligence-room-dashboard-910285417505.europe-west1.run.app |
-| Hosted gateway | https://gateway-910285417505.europe-west1.run.app |
-| Deployed agent | `projects/910285417505/locations/europe-west1/reasoningEngines/1322008800772751360` |
+| Hosted dashboard | https://diligence-room-dashboard-378831539922.asia-south1.run.app |
+| Hosted gateway | https://gateway-378831539922.asia-south1.run.app |
+| Deployed agent | `projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648` |
 | Live trace example | [Cloud Trace `550be385b6e9635d2be2e233e43ca7d0`](https://console.cloud.google.com/traces/list?project=diligence-room&tid=550be385b6e9635d2be2e233e43ca7d0) |
-| GCP project | `diligence-room` (910285417505), region europe-west1 + nam5 Firestore |
+| GCP project | `diligence-room-live` (378831539922); serving asia-south1 + us-central1, Firestore asia-south1 (serving) + nam5, data room US+EU |
 
 - Specification: [`diligence-room-vision.md`](diligence-room-vision.md)
 - Day-by-day build plan: [`BUILD_PLAN.md`](BUILD_PLAN.md)
@@ -192,7 +192,7 @@ is the sequence a text-only evaluator can verify end-to-end:
 Real gateway transcript against the deployed Cloud Run service:
 
 ```bash
-$ curl -s -X POST https://gateway-910285417505.europe-west1.run.app/gateway/decide \
+$ curl -s -X POST https://gateway-378831539922.asia-south1.run.app/gateway/decide \
     -H 'Content-Type: application/json' \
     -d '{"sender_identity":"legal-agent@deal-falcon","target_workstream":"finance",
          "deal_id":"deal-falcon","question":"What share of FY27 revenue comes from Meridian Logistics?",
@@ -207,9 +207,9 @@ $ # same endpoint, unauthorized corridor:
 
 | Artifact | Where |
 |---|---|
-| **Hosted dashboard** (Overview · Findings+Trace · Security · Registry, live Firestore tallies) | https://diligence-room-dashboard-910285417505.europe-west1.run.app |
-| **Hosted gateway** (policy edge, `/gateway/decide`) | https://gateway-910285417505.europe-west1.run.app |
-| **Vertex AI Agent Engine** (deployed ADK agent, async invoke verified) | `projects/910285417505/locations/europe-west1/reasoningEngines/1322008800772751360` |
+| **Hosted dashboard** (Overview · Findings+Trace · Security · Registry, live Firestore tallies) | https://diligence-room-dashboard-378831539922.asia-south1.run.app |
+| **Hosted gateway** (policy edge, `/gateway/decide`) | https://gateway-378831539922.asia-south1.run.app |
+| **Vertex AI Agent Engine** (deployed ADK agent, async invoke verified) | `projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648` |
 | **Cloud Trace** (GenAI spans; finding `audit_trace_id` resolves) | [console link above](https://console.cloud.google.com/traces/list?project=diligence-room&tid=550be385b6e9635d2be2e233e43ca7d0) |
 | **Architecture diagram** | [`docs/diagram/architecture.svg`](docs/diagram/architecture.svg) |
 | **Demonstration video** (≤4 min; backend on Google Cloud: Cloud Run URLs, Agent Engine, Cloud Console) | link added on the submission form |
@@ -356,7 +356,7 @@ use invented records.
 |---|---|---|
 | Blog post, public, created for the AllThingsAgentic Hackathon (+0.2) | Draft ready — publish and replace the placeholder URL before claiming the bonus | [`docs/blog/draft.md`](docs/blog/draft.md) |
 | Social post with `#AllThingsAgenticHackathon` (+0.2) | Pending publication | add the public URL on the submission form |
-| Additional Google AI model: **Gemma** ingestion sentinel (+0.2) | Integrated | [`ingestion/sentinel.py`](ingestion/sentinel.py), live-window evidence in [`docs/evidence/d4-live-gate.txt`](docs/evidence/d4-live-gate.txt) |
+| Additional Google AI model: **Gemma 4** ingestion sentinel (+0.2) | Live and verified — `gemma-4-26b-a4b-it` classifies a real termination clause as `contract` at 0.98 and tripwires a direct injection | [`ingestion/sentinel.py`](ingestion/sentinel.py), verification in [`docs/evidence/gemma-live.txt`](docs/evidence/gemma-live.txt) |
 
 ## Repository layout
 
