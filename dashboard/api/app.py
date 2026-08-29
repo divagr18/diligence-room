@@ -64,6 +64,7 @@ from memory.db import make_client
 from memory.event_log import EventLog, EventLogPublisher
 from memory.findings import Finding, FindingNotFoundError, FindingsStore, FindingStatus
 from registry.models import AgentManifest, Workstream
+from registry.store import AgentRegistryStore
 
 
 @dataclass(frozen=True, slots=True)
@@ -258,6 +259,15 @@ def create_app(
 
     @app.get("/api/registry", response_model=list[AgentOut])
     def registry() -> list[AgentOut]:
+        # Read the live store per request when one is wired, so a publish or a
+        # rollback shows up on the next reload. An explicit registry_manifests
+        # argument still wins (tests pin a fixed roster), and a read failure
+        # falls back to the seed roster rather than 500-ing the view.
+        if registry_manifests is None and live_client is not None:
+            try:
+                return data.build_agents(AgentRegistryStore(live_client).list_manifests())
+            except Exception:  # noqa: BLE001 - the demo shell must stay green
+                pass
         return data.build_agents(registry_manifests)
 
     @app.get("/api/documents/{document_id}")
