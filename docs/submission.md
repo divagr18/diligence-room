@@ -30,8 +30,8 @@ customer-exit exposure that no single specialist is allowed to create. It
 escalates that conclusion to the deal lead, then stops at a human approval
 gate. Twenty red-team attacks are blocked before reaching agent context.
 
-Everything runs live on Google Cloud: Cloud Run (gateway + dashboard), Vertex
-AI Agent Engine (deployed ADK agent), Firestore (partitioned memory + event
+Everything runs live on Google Cloud: Cloud Run (gateway + dashboard),
+Agent Runtime / Vertex AI Agent Engine (deployed ADK agent), Firestore (partitioned memory + event
 log), Pub/Sub (event bus), Model Armor (managed screening), Cloud KMS + DLP
 (compliance plane), Cloud Trace (OpenTelemetry GenAI spans).
 
@@ -60,18 +60,37 @@ decision, evidence span, safety verdict, and finding.
 
 ### Discovery & Lifecycle (Agent Registry)
 
-Agents are cataloged for cross-department use as versioned manifests with
-approval state, eval scores, and rollback targets (`registry/`). Live proof:
-Eight agents are seeded. A deliberately broken Legal v2.5 was published,
-caught by the shadow harness, and rolled back to 2.4.0 with memory intact.
+All eight agents are published into the **Gemini Enterprise Agent Platform
+Agent Registry** as A2A agent cards (`infra/agent_registry.py`), so the fleet is
+discoverable across the organisation: `gcloud agent-registry agents list` returns
+all eight projected as read-only Agents. Cards are derived from the Firestore
+manifests, never restated, so the two cannot drift, and each card's published URL
+resolves — the gateway serves it at `GET /agents/{agent_id}`.
+
+Our own registry (`registry/`) stays the lifecycle layer on top: semantic
+versions, approval state, eval scores and rollback targets, none of which the
+platform registry models. Live proof: a deliberately broken Legal v2.5 was
+published, caught by the shadow harness, and rolled back to 2.4.0 with memory
+intact.
 
 ### Core Execution & State (Agent Runtime + Memory Bank)
 
-Long-running asynchronous execution on Vertex AI Agent Engine (deployed
-resource `projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648`,
-async invoke verified). Persistent cross-session context in Firestore
-partitions `org / deal / workstream` with an append-only event log (143
-audited events live) and crash-resume checkpoints. A restarted run creates no
+Long-running asynchronous execution on Agent Runtime / Vertex AI Agent Engine
+(the platform renamed Agent Engine to Agent Runtime; the API resource is still
+`ReasoningEngine` for backwards compatibility). Deployed resource
+`projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648`,
+async invoke verified.
+
+**Memory Bank** (`memory/memory_bank.py`) attaches to that runtime instance and
+holds durable memory about counterparties, so a session opened weeks later starts
+knowing what the fleet learned. The coordinator writes one memory when it
+synthesises the CRITICAL finding; `recall("Meridian")` from a separate process —
+one that never imports Firestore — returns the 18.3% concentration, the Section
+11.3 change-of-control right and the four-workstream convergence. That is the
+cross-session claim, checked rather than asserted.
+
+Firestore keeps what it is good at: partitions `org / deal / workstream` with an
+append-only event log (143 audited events live) and crash-resume checkpoints. A restarted run creates no
 duplicate findings. Retry and idempotency keys, plus a dead-letter queue,
 handle malformed events.
 
@@ -137,7 +156,8 @@ across consecutive runs.
 ## Live project
 
 The dashboard and gateway run on Cloud Run in `europe-west1`. The deployed ADK
-agent runs on Vertex AI Agent Engine. Cloud Trace records the agent and gateway
+agent runs on Agent Runtime / Vertex AI Agent Engine. Cloud Trace records the
+agent and gateway
 spans. The [architecture diagram](diagram/architecture.svg),
 [deployment receipts](evidence/live-deployment.txt), and
 [provisioning guide](deal_provisioning.md) explain how the system is deployed
@@ -145,7 +165,8 @@ and reproduced.
 
 ## Technologies used
 
-Python 3.11 · Google ADK · Vertex AI Agent Engine · Gemini 3.5 Flash · Gemma
+Python 3.11 · Google ADK · Agent Runtime / Vertex AI Agent Engine ·
+Gemini 3.5 Flash · Gemma
 (sentinel, bonus model) · FastAPI · React + Vite + TypeScript · Firestore ·
 Pub/Sub · Cloud Run · Cloud Storage · Model Armor · Cloud DLP · Cloud KMS
 (CMEK) · Cloud Trace (OpenTelemetry GenAI semantic conventions) · uv ·
@@ -171,7 +192,7 @@ scenario. No real company data, no real PII.
    factory routing live traffic to a named database.
 4. Cost gates work. Gemma sentinel before premium Flash calls kept the whole
    build under a $170 budget.
-5. Deployment packaging drifts silently. The Agent Engine remote
+5. Deployment packaging drifts silently. The Agent Runtime remote
    requirements lagged module-level imports until a live container failed to
    start.
 
@@ -217,4 +238,4 @@ execution path.
 The hosted dashboard and gateway are live on Google Cloud. The public demo
 shows the running system process a document, make a governed cross-workstream
 request, block an unauthorized request, create the CRITICAL finding, and show
-the supporting Cloud Run, Agent Engine, and Cloud Trace resources.
+the supporting Cloud Run, Agent Runtime, and Cloud Trace resources.

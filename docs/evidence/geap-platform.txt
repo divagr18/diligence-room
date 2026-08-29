@@ -1,0 +1,157 @@
+Gemini Enterprise Agent Platform components — evidence (2026-08-29)
+====================================================================
+
+This file records which named Fortified Enterprise Fleet components run on the
+Google platform itself, versus which are built on top of it, so a judge can
+check the claim rather than take it.
+
+Sections are appended as each component lands.
+
+
+1. AGENT RUNTIME — already satisfied, was named wrongly
+-------------------------------------------------------
+
+Agent Runtime and Vertex AI Agent Engine are the SAME product. The platform
+runtime documentation states it outright:
+
+    "Because the name of Agent Runtime changed over time, the name of the
+     resource in the API reference is ReasoningEngine to maintain backwards
+     compatibility."
+    -- docs.cloud.google.com/gemini-enterprise-agent-platform/build/runtime
+       (retrieved 2026-08-29)
+
+We deploy to it and always have. What was wrong was the naming: every document
+said "Vertex AI Agent Engine", the older name, so a judge scanning for the
+track's named component "Agent Runtime" would not have connected them.
+
+  deploy path   infra/deploy/agent_engine.py -> vertexai.agent_engines.create()
+  resource      projects/378831539922/locations/us-central1/
+                  reasoningEngines/7141202128323739648
+  verification  `uv run python infra/deploy/agent_engine.py invoke`
+                Session 8793889635265675264
+                response 'The echoed text is: diligence-room-day1-smoke' — PASS
+
+Docs now write it as "Agent Runtime / Vertex AI Agent Engine" throughout, so
+both names are searchable and neither reads as a different product. The module
+filename and the API calls are unchanged: renaming `agent_engine.py` would churn
+imports across the tree for no functional gain, and `ReasoningEngine` is still
+the correct API resource name.
+
+Files updated: README.md (8 places), docs/submission.md (6 places).
+
+
+2. AGENT REGISTRY — the fleet is published (2026-08-29)
+--------------------------------------------------------
+
+The consumer surface (`gcloud agent-registry agents`) is read-only, so
+registration goes through `services create`, which the platform then projects
+back as a discoverable read-only Agent.
+
+  enable        gcloud services enable agentregistry.googleapis.com
+  publish       uv run python infra/agent_registry.py --confirm-live
+  cards         registry/agent_card.py projects them from the Firestore
+                manifests, so the catalogue cannot drift from the roster
+
+  gcloud agent-registry agents list --location us-central1       --project diligence-room-live
+
+  DISPLAY_NAME
+    ESG Agent · Finance Agent · HR Agent · IP & Technology Agent
+    Legal Agent · Real Estate Agent · Regulatory Agent · Tax Agent
+    (plus diligence-room-hello, the Agent Runtime deployment, which the
+     platform catalogues by itself)
+
+Three rejections shaped the code, each now pinned by a test in
+tests/test_agent_registry.py:
+
+  a. service_id must match ^[a-z][a-z0-9-]{2,61}[a-z0-9]$. `ip_tech` is illegal
+     (underscore) and `esg`/`hr`/`tax` are under the 4-character minimum, so ids
+     are prefixed and hyphenated: diligence-ip-tech, diligence-esg.
+  b. "protocolVersion is required" — the A2A card is rejected without it.
+  c. "Interface URL ... is already in use by another service" — every service
+     needs a distinct URL, so all eight cannot share the gateway root.
+
+(c) is the interesting one. Rather than publish eight URLs that 404, the gateway
+now serves each agent's card at its own path, so the address in the catalogue
+resolves:
+
+  GET https://gateway-378831539922.asia-south1.run.app/agents/legal
+  -> {"protocolVersion":"0.3.0","name":"Legal Agent", ... }
+
+That is real agent discovery, and it is the same builder the registry publishes.
+
+DIVISION OF LABOUR (not duplication)
+  Agent Registry  the org-wide catalogue: what exists, what it does, where it is
+  registry/       versions, approval state, eval scores, rollback targets
+
+The platform registry does not model a rollback target, and the rollback is what
+segment 7 of the demo exercises. Both are needed; neither is redundant.
+
+Windows note: the card is passed as a file path, not inline JSON. `gcloud` is a
+.CMD shim here, so cmd.exe re-parses the `&` in "M&A" and truncates the payload.
+
+
+3. MEMORY BANK — live, with cross-session retrieval proven
+-----------------------------------------------------------
+
+Firestore keeps the append-only event log and the evidence-gated findings.
+Memory Bank holds what the fleet has learned about a counterparty, so a session
+opened weeks later starts knowing it. Different job, not a second store.
+
+  module        memory/memory_bank.py
+  service       google.adk.memory.VertexAiMemoryBankService
+  attached to   Agent Runtime 7141202128323739648 (the deployed instance)
+  scope         app_name="diligence-room", user_id=<deal_id>
+  gate          DILIGENCE_MEMORY_BANK_ENABLED=1, mirroring the Gemma sentinel;
+                unset is the offline default and every caller treats it as skip
+
+WRITE PATH
+  agents/coordinator/synthesize.py calls _remember_entity immediately after
+  store.create(finding) succeeds. The duplicate branch returns earlier, so a
+  rerun never writes a second memory — idempotency falls out of the existing
+  control flow rather than a new guard. One call per deal, on the CRITICAL
+  synthesis only, so the recorded replay is not slowed by five model calls.
+
+  scripts/backfill_memories.py covers deals whose findings already exist:
+
+    remembered Meridian Logistics, Inc. <- 0db3c249a2c0 (legal)
+    remembered Meridian Logistics, Inc. <- f4c993d48cda (legal)
+    remembered Meridian Logistics, Inc. <- 3d4edda926c3 (finance)
+    remembered Dana Whitfield          <- 8bb4ecb0e591 (hr)
+    remembered Meridian Logistics, Inc. <- 8bb4ecb0e591 (hr)
+    remembered Meridian Logistics, Inc. <- cbc6a71f9a3c (ip_tech)
+    Memory Bank holds 6 entity memories for deal-falcon.
+
+CROSS-SESSION RETRIEVAL — the claim, checked
+  A separate process, with DILIGENCE_FIRESTORE_DATABASE unset:
+
+    bank: LiveMemoryBank
+    recall("Meridian") -> 3 memories
+      Meridian Logistics, Inc.: Meridian Logistics represents 18.3% of
+        projected FY27 revenue. (finding 3d4edda926c3)
+      Meridian Logistics, Inc.: Section 11.3 ... grants either party a
+        termination right within 90 days of a Change of Control ...
+      Meridian Logistics, Inc.: 4 workstreams independently converge on
+        Meridian Logistics, Inc. ...
+    firestore imported in this process: False
+
+  The last line is the point: the facts came out of Memory Bank, not Firestore.
+
+DESIGN NOTES
+  add_memory and search_memory are async; everything around them is sync, so
+  memory/memory_bank.py owns the event loop and exposes a sync facade rather
+  than turning the coordinator async for one call. If a loop is already running
+  the coroutine is driven on its own loop in a worker thread.
+
+  A Memory Bank outage can never fail a finding that is already durably in
+  Firestore: the hook swallows and logs, and a test pins that behaviour.
+
+KNOWN WARNINGS (harmless, recorded so they are not mistaken for faults)
+  "Ignoring revision labels ['author','timestamp'] because installed Vertex SDK
+   does not support create config.revision_labels" — the entries are written;
+   only the optional labels are dropped.
+  "The vertexai.Client class is deprecated. Please use agentplatform.Client" —
+   raised inside the ADK service, not our code.
+
+GATES AT THIS POINT
+  1130 tests passed (1107 before, +23 for registry and memory bank)
+  ruff clean · 341 files formatted · mypy clean across 224 source files

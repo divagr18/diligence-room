@@ -25,7 +25,9 @@ from starlette.responses import Response
 
 from gateway.decide import GatewayRequest, decide
 from identity.principals import parse_identity
+from registry.agent_card import build_agent_card
 from registry.models import Workstream
+from registry.store import AgentRegistryStore
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +80,28 @@ def _whoami(request: Request) -> dict[str, str]:
     return {"caller": caller}
 
 
+def _make_agent_card_route(
+    gateway_client: firestore.Client,
+) -> Callable[[str], dict[str, object]]:
+    """Serve each agent's A2A card at its own path.
+
+    The Agent Registry entry for every agent publishes this URL, and the
+    registry requires a distinct interface URL per service. Serving the card
+    here means the address in the catalogue actually resolves, and gives the
+    fleet a real discovery endpoint rather than an advertised 404.
+    """
+
+    def _agent_card(agent_id: str) -> dict[str, object]:
+        store = AgentRegistryStore(gateway_client)
+        try:
+            manifest = store.get_manifest(agent_id)
+        except KeyError as exc:
+            raise fastapi.HTTPException(status_code=404, detail=f"no agent {agent_id!r}") from exc
+        return build_agent_card(manifest)
+
+    return _agent_card
+
+
 def _make_decide_route(
     gateway_client: firestore.Client,
 ) -> Callable[[DecideBody], Awaitable[DecideResponseModel]]:
@@ -121,4 +145,7 @@ def create_app(
     app.add_api_route("/whoami", _whoami, methods=["GET"])
     if gateway_client is not None:
         app.add_api_route("/gateway/decide", _make_decide_route(gateway_client), methods=["POST"])
+        app.add_api_route(
+            "/agents/{agent_id}", _make_agent_card_route(gateway_client), methods=["GET"]
+        )
     return app

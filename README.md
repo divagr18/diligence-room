@@ -17,15 +17,15 @@ OpenTelemetry traces. Mermaid source:
 [`docs/diagram/architecture.png`](docs/diagram/architecture.png).
 
 Built for the **AllThingsAgentic Hackathon** (Fortified Enterprise Fleet track)
-on the Google Gemini Enterprise Agent Platform: Python + Google ADK, Vertex AI
-Agent Engine, Gemini 3.5 Flash, Firestore, Pub/Sub, Cloud Run, Model Armor,
-Cloud Trace.
+on the Google Gemini Enterprise Agent Platform: Python + Google ADK,
+Agent Runtime / Vertex AI Agent Engine, Gemini 3.5 Flash, Firestore,
+Pub/Sub, Cloud Run, Model Armor, Cloud Trace.
 
 | | |
 |---|---|
 | Hosted dashboard | https://diligence-room-dashboard-378831539922.asia-south1.run.app |
 | Hosted gateway | https://gateway-378831539922.asia-south1.run.app |
-| Deployed agent | `projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648` |
+| Agent Runtime / Vertex AI Agent Engine (deployed agent) | `projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648` |
 | Live trace example | [Cloud Trace `550be385b6e9635d2be2e233e43ca7d0`](https://console.cloud.google.com/traces/list?project=diligence-room&tid=550be385b6e9635d2be2e233e43ca7d0) |
 | GCP project | `diligence-room-live` (378831539922); serving asia-south1 + us-central1, Firestore asia-south1 (serving) + nam5, data room US+EU |
 
@@ -42,9 +42,9 @@ both source and live proof.
 
 | Track focus area | Our implementation | Where | Live evidence |
 |---|---|---|---|
-| **Discovery & Lifecycle — Agent Registry** | Manifests, semantic versions, approval, eval scores, rollback targets | [`registry/`](registry/) | 8 agents seeded live; Legal v2.5 regression published, harness RED, rolled back to 2.4.0 with finding counts identical |
-| **Core Execution — Agent Runtime** | Async execution on Vertex AI Agent Engine + retry/idempotency + DLQ | [`runtime/`](runtime/), [`infra/deploy/agent_engine.py`](infra/deploy/agent_engine.py) | Deployed engine returned a verified asynchronous response |
-| **Long-term State — Memory Bank** | Firestore partitions `org / deal / workstream` + append-only event log + crash-resume checkpoints | [`memory/`](memory/), [`runtime/checkpoint.py`](runtime/checkpoint.py) | 143 audited deal events live; kill-mid-run → resume → zero duplicate findings |
+| **Discovery & Lifecycle — Agent Registry** | Published into the **platform Agent Registry** as A2A agent cards, with our Firestore store as the versioning, approval and rollback layer on top | [`infra/agent_registry.py`](infra/agent_registry.py), [`registry/`](registry/) | All 8 projected as discoverable Agents by `gcloud agent-registry agents list`; each card resolves at `GET /agents/{id}`; Legal v2.5 published, harness RED, rolled back to 2.4.0 with finding counts identical |
+| **Core Execution — Agent Runtime** | Async execution on Agent Runtime / Vertex AI Agent Engine + retry/idempotency + DLQ | [`runtime/`](runtime/), [`infra/deploy/agent_engine.py`](infra/deploy/agent_engine.py) | Deployed engine returned a verified asynchronous response |
+| **Long-term State — Memory Bank** | **Agent Platform Memory Bank** holds durable entity memory across sessions; Firestore keeps the append-only event log, findings and crash-resume checkpoints | [`memory/memory_bank.py`](memory/memory_bank.py), [`memory/`](memory/), [`runtime/checkpoint.py`](runtime/checkpoint.py) | 6 entity memories for `deal-falcon`; `recall("Meridian")` returns the 18.3% and change-of-control facts from a process that never imports Firestore; kill-mid-run → resume → zero duplicate findings |
 | **Agent Identity — zero-trust access** | Per-agent principals, manifest→identity binding, agent→data + human→output AuthZ | [`identity/`](identity/) | `Legal ⊬ Finance`, `Finance ⊬ HR`, cross-deal reads: typed `AuthzDenied` + audit events |
 | **Agent Gateway — routing + policy** | Deny-default policy engine with machine-readable reason enums + rate limits (built, not bought) | [`gateway/`](gateway/) | Live verdicts: `allow/aggregate_permitted` (legal→finance) and `deny/no_policy` — transcript below |
 | **Model Armor — guardrails** | Managed template + project rules + quarantine store; fail-closed on unparseable verdicts | [`armor/`](armor/) | `direct_a.pdf` → `MATCH_FOUND pi_and_jailbreak` → quarantined before agent context |
@@ -209,10 +209,10 @@ $ # same endpoint, unauthorized corridor:
 |---|---|
 | **Hosted dashboard** (Overview · Findings+Trace · Security · Registry, live Firestore tallies) | https://diligence-room-dashboard-378831539922.asia-south1.run.app |
 | **Hosted gateway** (policy edge, `/gateway/decide`) | https://gateway-378831539922.asia-south1.run.app |
-| **Vertex AI Agent Engine** (deployed ADK agent, async invoke verified) | `projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648` |
+| **Agent Runtime / Vertex AI Agent Engine** (deployed ADK agent, async invoke verified) | `projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648` |
 | **Cloud Trace** (GenAI spans; finding `audit_trace_id` resolves) | [console link above](https://console.cloud.google.com/traces/list?project=diligence-room&tid=550be385b6e9635d2be2e233e43ca7d0) |
 | **Architecture diagram** | [`docs/diagram/architecture.svg`](docs/diagram/architecture.svg) |
-| **Demonstration video** (≤4 min; backend on Google Cloud: Cloud Run URLs, Agent Engine, Cloud Console) | link added on the submission form |
+| **Demonstration video** (≤4 min; backend on Google Cloud: Cloud Run URLs, Agent Runtime / Vertex AI Agent Engine, Cloud Console) | link added on the submission form |
 | **Deployment receipts** (gcloud outputs, IDs, timestamps) | [`docs/evidence/live-deployment.txt`](docs/evidence/live-deployment.txt) |
 
 Serving runs in `europe-west1` (within deal-falcon's declared US+EU region
@@ -258,7 +258,7 @@ Optional steps beyond bootstrap:
 # Apply org-safety guardrails (audit logs, SA-key policy)
 uv run python infra/guardrails.py
 
-# Deploy the ADK agent to Vertex AI Agent Engine and invoke it asynchronously
+# Deploy the ADK agent to Agent Runtime / Vertex AI Agent Engine and invoke it
 uv run python infra/deploy/agent_engine.py deploy
 uv run python infra/deploy/agent_engine.py invoke
 ```
@@ -273,7 +273,7 @@ is write-gated behind `--confirm-live`.
 | Component | Role |
 |---|---|
 | Google ADK | Shared agent scaffolding: eight workstreams + coordinator + negotiation |
-| Vertex AI Agent Engine | Hosted ADK deployment + asynchronous invocation |
+| Agent Runtime / Vertex AI Agent Engine | Hosted ADK deployment + asynchronous invocation |
 | Gemini 3.5 Flash | Workstream reasoning + classification behind the sentinel cost gate |
 | Gemma sentinel | Cheap pre-classification, PII marking, and tripwire before any premium call |
 | FastAPI | Agent Gateway policy engine + dashboard API edge |
@@ -336,7 +336,7 @@ What building, breaking, and validating the fleet taught us:
 4. **Cost gates work.** A cheap Gemma sentinel tripwire in front of premium
    Flash calls keeps the project inside a $170 budget with alerts at
    50/80/100%.
-5. **Deployment packaging drifts silently.** The Agent Engine remote
+5. **Deployment packaging drifts silently.** The Agent Runtime remote
    requirements lagged the agent's module-level imports until a live container
    failed to start; the fix now ships the full first-party import closure.
 

@@ -18,6 +18,7 @@ synthesis refuses — the keystone removal-proof.
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Final, Protocol
@@ -36,12 +37,15 @@ from memory.findings import (
     FindingsStore,
     FindingStatus,
 )
+from memory.memory_bank import EntityMemory, memory_bank_from_env
 from memory.partitions import partition_collection
 from observability.otel import trace_id_of
 from observability.trace_link import ingestion_links
 from observability.tracing import stage_span
 from registry.models import Workstream
 from runtime.events import EventEnvelope, EventType, new_event
+
+logger = logging.getLogger(__name__)
 
 REQUIRED_CONTRIBUTORS: Final[tuple[Workstream, ...]] = (
     Workstream.LEGAL,
@@ -114,6 +118,32 @@ def synthesize_critical(
                 span.set_attribute("coordinator.entity", outcome.entity)
             span.set_attribute("coordinator.contributors", outcome.contributors)
         return outcome.finding_id
+
+
+def _remember_entity(deal_id: str, entity: str, finding: Finding) -> None:
+    """Publish the convergence entity to Memory Bank, if it is enabled.
+
+    Called once per deal, on the CRITICAL synthesis only, so a replay makes one
+    call rather than one per finding. The duplicate branch above returns before
+    reaching here, so a rerun never writes a second memory.
+
+    A Memory Bank outage must never fail a finding that is already durably in
+    Firestore, so every error is swallowed.
+    """
+    bank = memory_bank_from_env()
+    if bank is None:
+        return
+    try:
+        bank.remember_entity(
+            EntityMemory(
+                deal_id=deal_id,
+                entity=entity,
+                summary=finding.summary,
+                finding_id=finding.finding_id,
+            )
+        )
+    except Exception:  # noqa: BLE001 - memory is additive, never load-bearing
+        logger.warning("memory bank write failed for %s/%s", deal_id, entity, exc_info=True)
 
 
 def _synthesize(
@@ -197,6 +227,8 @@ def _synthesize(
             store.create(finding)
         except DuplicateFindingError:
             return _SynthesisOutcome(finding_id, entity, len(contributors))
+
+        _remember_entity(deal_id, entity, finding)
 
         if span is not None:
             span.set_attribute("gen_ai.system", "diligence-room")
