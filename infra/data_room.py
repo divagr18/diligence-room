@@ -20,13 +20,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from collections.abc import Sequence
 
 from infra.bootstrap_gcp import run_gcloud
 
-PROJECT_ID: str = "diligence-room"
+PROJECT_ID: str = os.environ.get("DILIGENCE_PROJECT_ID", "diligence-room")
 TOPIC: str = "deal-events"
 SUBSCRIPTION: str = "deal-events-sub"
 REGION_MAP: dict[str, str] = {"US": "us-central1", "EU": "europe-west1"}
@@ -51,8 +52,8 @@ def plan_bucket_pair(deal_id: str) -> tuple[str, str]:
     """
     _validate_deal_id(deal_id)
     return (
-        f"diligence-room-dataroom-{deal_id}-us",
-        f"diligence-room-dataroom-{deal_id}-eu",
+        f"{PROJECT_ID}-dataroom-{deal_id}-us",
+        f"{PROJECT_ID}-dataroom-{deal_id}-eu",
     )
 
 
@@ -108,7 +109,7 @@ def plan_data_room(deal_id: str, project_number: str) -> list[list[str]]:
 
     # 2–3. US + EU buckets
     for suffix, region_key in (("-us", "US"), ("-eu", "EU")):
-        bucket = f"diligence-room-dataroom-{deal_id}{suffix}"
+        bucket = f"{PROJECT_ID}-dataroom-{deal_id}{suffix}"
         steps.append(
             [
                 "storage",

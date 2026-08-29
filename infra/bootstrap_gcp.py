@@ -44,7 +44,11 @@ BUDGET_THRESHOLDS: tuple[float, ...] = (0.5, 0.8, 1.0)
 # Agent Engine has no dedicated service id — it is served by aiplatform.
 REQUIRED_SERVICES: tuple[str, ...] = (
     "aiplatform.googleapis.com",
+    # Cloud Run --source deploys build with Cloud Build and push to Artifact
+    # Registry; without both enabled the first deploy fails SERVICE_DISABLED.
+    "artifactregistry.googleapis.com",
     "billingbudgets.googleapis.com",
+    "cloudbuild.googleapis.com",
     "cloudkms.googleapis.com",
     "cloudtrace.googleapis.com",
     "dlp.googleapis.com",
@@ -437,19 +441,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--billing-account", default=BILLING_ACCOUNT)
     args = parser.parse_args(argv)
 
+    # Derive per-project names: the module constants are bound to the default
+    # project id, but bucket names are globally unique and budget display names
+    # are per-project, so a --project override must carry through to both or the
+    # bootstrap silently adopts another project's staging bucket.
+    staging_bucket = f"{args.project}-staging"
+    budget_display_name = f"{args.project}-hard-cap"
+
     ensure_project(args.project)
     ensure_billing_link(args.project, args.billing_account)
     ensure_services(args.project)
-    ensure_staging_bucket(args.project, STAGING_BUCKET, REGION)
+    ensure_staging_bucket(args.project, staging_bucket, REGION)
     ensure_budget(
         args.billing_account,
         args.project,
-        BUDGET_DISPLAY_NAME,
+        budget_display_name,
         BUDGET_AMOUNT_UNITS,
         BUDGET_THRESHOLDS,
     )
     check_adc()
-    verify(args.project, args.billing_account, BUDGET_DISPLAY_NAME)
+    verify(args.project, args.billing_account, budget_display_name)
 
     step(f"Setting default project to {args.project}")
     run_gcloud(["config", "set", "project", args.project])

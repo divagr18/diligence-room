@@ -23,7 +23,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-PROJECT_ID = "diligence-room"
+PROJECT_ID = os.environ.get(
+    "DILIGENCE_PROJECT_ID", os.environ.get("GOOGLE_CLOUD_PROJECT", "diligence-room")
+)
 # Agent Engine resources live in us-central1 (canonical supported region);
 # the gemini-3.5-flash model itself is only served from the global location,
 # so the remote ADK runtime gets GOOGLE_CLOUD_LOCATION=global via env_vars.
