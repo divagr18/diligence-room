@@ -1,17 +1,4 @@
----
-submission_id: diligence-room-project-falcon
-project: Project Falcon
-hackathon: AllThingsAgentic Hackathon
-track: Fortified Enterprise Fleet
-blog_url: https://dev.to/divagr/zero-trust-agent-fleets
-visibility: public
-blog_draft: docs/blog/draft.md
-blog_language: hackathon-purpose (created for the AllThingsAgentic Hackathon, bonus +0.2)
----
-
-# Diligence Room (Project Falcon)
-
-![Diligence Room Architecture](https://raw.githubusercontent.com/divagr18/diligence-room/main/docs/diagram/architecture.png)
+# Diligence Room
 
 ## Inspiration
 
@@ -141,6 +128,5 @@ We built Diligence Room natively on the **Gemini Enterprise Agent Platform (GEAP
 - **Hosted Agent Gateway:** [gateway...run.app](https://gateway-378831539922.asia-south1.run.app)
 - **Deployed Agent Runtime:** `projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648`
 - **Cloud Trace Sample:** [Cloud Trace `d77658309933cf2ff4a5d336e9960a64`](https://console.cloud.google.com/traces/list?project=diligence-room-live&tid=d77658309933cf2ff4a5d336e9960a64)
-- **Architecture Diagram:** [High-Res Vector SVG](https://raw.githubusercontent.com/divagr18/diligence-room/main/docs/diagram/architecture.png) (PNG: [High-Res PNG](https://raw.githubusercontent.com/divagr18/diligence-room/main/docs/diagram/architecture.png))
+- **Architecture Diagram:** [High-Res Vector SVG](https://raw.githubusercontent.com/divagr18/diligence-room/main/docs/diagram/architecture.svg) (PNG: [High-Res PNG](https://raw.githubusercontent.com/divagr18/diligence-room/main/docs/diagram/architecture.png))
 - **Code Repository:** [github.com/divagr18/diligence-room](https://github.com/divagr18/diligence-room)
-

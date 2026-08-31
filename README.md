@@ -99,7 +99,7 @@ Diligence Room is built natively on the **Gemini Enterprise Agent Platform (GEAP
 
 ### 1. Gemini Enterprise Agent Platform (GEAP) Implementation
 
-| GEAP Pillar | Google Cloud Technology | Our Implementation | Live Verification & File Link |
+| GEAP Pillar | Google Cloud Technology | My Implementation | Live Verification & File Link |
 |---|---|---|---|
 | **Discovery & Lifecycle** | **Agent Registry** | Published as official A2A Agent Cards; Firestore provides semantic versioning, approval state, and automated rollback | [`infra/agent_registry.py`](infra/agent_registry.py), [`registry/`](registry/) · Verified via `gcloud agent-registry agents list` |
 | **Core Execution** | **Agent Runtime** / Vertex AI Agent Engine | Long-running asynchronous background execution with retry, idempotency, and dead-letter queues | [`runtime/`](runtime/), [`infra/deploy/agent_engine.py`](infra/deploy/agent_engine.py) · Resource `reasoningEngines/7141202128323739648` |
@@ -296,10 +296,10 @@ Diligence Room completes all three optional developer contribution categories fo
 
 Building, breaking, and evaluating Diligence Room produced five vital insights for enterprise multi-agent engineering:
 
-1. **Managed Guardrails Can Fail Open:** In early testing, a response-mapping quirk in upstream guardrail outputs treated unrecognized verdicts as permissive. We re-engineered the Model Armor client to **fail strictly closed** on any non-standard or unparseable response ([`docs/evidence/d7-live-armor.txt`](docs/evidence/d7-live-armor.txt)).
-2. **Entity Canonicalization is a Keystone Hazard:** LLMs naturally generate slight variations of entity names (e.g., *"Meridian Logistics"* vs. *"Meridian Logistics, Inc. account"*). Instead of introducing fuzzy matching (which degrades cross-workstream rigor), we enforced strict canonical entity contracts in the `finding_create` tool specification.
+1. **Managed Guardrails Can Fail Open:** In early testing, a response-mapping quirk in upstream guardrail outputs treated unrecognized verdicts as permissive. I re-engineered the Model Armor client to **fail strictly closed** on any non-standard or unparseable response ([`docs/evidence/d7-live-armor.txt`](docs/evidence/d7-live-armor.txt)).
+2. **Entity Canonicalization is a Keystone Hazard:** LLMs naturally generate slight variations of entity names (e.g., *"Meridian Logistics"* vs. *"Meridian Logistics, Inc. account"*). Instead of introducing fuzzy matching (which degrades cross-workstream rigor), I enforced strict canonical entity contracts in the `finding_create` tool specification.
 3. **Multi-Region Latency Compounds in Multi-Agent Loops:** Shifting the active Firestore database and Cloud Run edge from `us-central1` to `asia-south1` (closer to operator test environments) dropped round-trip latency from 834 ms to 156 ms, slashing full deal replay time from 262s to 57s.
-4. **Cost Gating via Tiered Models is Crucial:** Placing a lightweight Gemma 4 sentinel in front of Gemini 3.5 Flash reduced unnecessary token burn on hostile and junk documents by 74%, keeping our entire multi-week build inside the $170 budget.
+4. **Cost Gating via Tiered Models is Crucial:** Placing a lightweight Gemma 4 sentinel in front of Gemini 3.5 Flash reduced unnecessary token burn on hostile and junk documents by 74%, keeping my entire multi-week build inside the $170 budget.
 5. **Durable Memory Requires State Decoupling:** Long-term memory cannot be tied to an agent's runtime container or ephemeral context. Decoupling the Memory Bank into a standalone persistent service allows agent models to be upgraded or rolled back with zero loss of accumulated transaction knowledge.
 
 ---
