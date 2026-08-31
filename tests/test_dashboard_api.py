@@ -4,6 +4,7 @@ Day-11 web shell; vision §15 four views)."""
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
 from fastapi.testclient import TestClient
@@ -16,7 +17,9 @@ from dashboard.api.data import _COC_SPAN, _FIN_CUSTOMER_ROW
 from identity.principals import principal_for
 from ingestion.chunking import chunk
 from ingestion.parsing import LocalParser
+from memory.db import make_client
 from memory.event_log import EventLog
+from redteam.runner import run_redteam
 from registry.models import Workstream
 from runtime.events import EventType
 
@@ -117,6 +120,10 @@ class TestSecurity:
         assert body["feed"], "security feed must not be empty"
 
     def test_live_bundle_with_explicit_client(self, firestore_client: firestore.Client) -> None:
+        # The view reads a recorded run rather than executing one, so a run has
+        # to exist first. It used to be executed by the GET itself, which meant
+        # every page load wrote twenty more quarantine records.
+        run_redteam(firestore_client, deal_id="deal-falcon")
         body = TestClient(create_app(client=firestore_client)).get("/api/security").json()
         assert body["total_blocked"] == 20
         assert len(body["quarantined"]) == 20
@@ -136,9 +143,33 @@ class TestSecurity:
             "cross_deal",
         }
 
+    def test_the_view_never_writes(self, firestore_client: firestore.Client) -> None:
+        """Two loads must not grow the quarantine store; a GET is a read."""
+        run_redteam(firestore_client, deal_id="deal-falcon")
+        client = TestClient(create_app(client=firestore_client))
+        first = client.get("/api/security").json()
+        second = client.get("/api/security").json()
+        assert len(first["quarantined"]) == len(second["quarantined"]) == 20
+        assert first["total_blocked"] == second["total_blocked"] == 20
+
+    def test_only_the_latest_run_is_shown(self, firestore_client: firestore.Client) -> None:
+        """Runs accumulate in Firestore; the view reports one, not all of them."""
+        run_redteam(firestore_client, deal_id="deal-falcon")
+        run_redteam(firestore_client, deal_id="deal-falcon")
+        body = TestClient(create_app(client=firestore_client)).get("/api/security").json()
+        assert len(body["quarantined"]) == 20
+        assert len({q["document_id"].split("__", 1)[0] for q in body["quarantined"]}) == 1
+
     def test_emulator_env_autowires_a_client(self, firestore_emulator: str) -> None:
         # conftest sets FIRESTORE_EMULATOR_HOST for the fixture's lifetime;
         # create_app() must build the emulator client itself.
+        # Same project id create_app() uses: against the emulator the project
+        # namespaces the data, so a bare make_client() would seed a namespace
+        # the app never reads.
+        run_redteam(
+            make_client(os.environ.get("GOOGLE_CLOUD_PROJECT", "diligence-room")),
+            deal_id="deal-falcon",
+        )
         body = TestClient(create_app()).get("/api/security").json()
         assert body["total_blocked"] == 20
         assert len(body["quarantined"]) >= 20

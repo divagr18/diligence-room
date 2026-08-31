@@ -37,7 +37,7 @@ from dashboard.api.models import (
     WorkstreamProgress,
 )
 from redteam.runner import attack_class_of
-from redteam.scorecard import GROUP_LABELS, build_scorecard
+from redteam.scorecard import GROUP_LABELS, read_scorecard
 from registry.models import AgentManifest
 from registry.seed import SEED_MANIFESTS
 
@@ -882,7 +882,11 @@ def build_security_bundle(client: firestore.Client | None = None) -> SecurityBun
             scorecard=list(_SCORECARD),
             total_blocked=len(_QUARANTINE),
         )
-    scorecard = build_scorecard(client, deal_id=DEAL_ID)
+    # read_scorecard, not build_scorecard: the latter re-runs all twenty
+    # attacks through the ingestion pipeline, so serving it from a GET wrote
+    # twenty fresh quarantine records per page load and grew its own latency
+    # request by request. This reads the stored run instead.
+    scorecard, records = read_scorecard(client, deal_id=DEAL_ID)
     quarantined = [
         QuarantineItem(
             document_id=record.document_id,
@@ -892,7 +896,7 @@ def build_security_bundle(client: firestore.Client | None = None) -> SecurityBun
             attack_class=attack_class_of(record.document_id) or "unknown",
             ts=record.ts.isoformat(),
         )
-        for record in QuarantineStore(client).list_quarantined(DEAL_ID)
+        for record in records
     ]
     return SecurityBundle(
         quarantined=quarantined,
