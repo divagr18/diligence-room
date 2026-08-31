@@ -26,7 +26,7 @@ Pub/Sub, Cloud Run, Model Armor, Cloud Trace.
 | Hosted dashboard | https://diligence-room-dashboard-378831539922.asia-south1.run.app |
 | Hosted gateway | https://gateway-378831539922.asia-south1.run.app |
 | Agent Runtime / Vertex AI Agent Engine (deployed agent) | `projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648` |
-| Live trace example | [Cloud Trace `550be385b6e9635d2be2e233e43ca7d0`](https://console.cloud.google.com/traces/list?project=diligence-room&tid=550be385b6e9635d2be2e233e43ca7d0) |
+| Live trace example | [Cloud Trace `d77658309933cf2ff4a5d336e9960a64`](https://console.cloud.google.com/traces/list?project=diligence-room-live&tid=d77658309933cf2ff4a5d336e9960a64) |
 | GCP project | `diligence-room-live` (378831539922); serving asia-south1 + us-central1, Firestore asia-south1 (serving) + nam5, data room US+EU |
 
 - Specification: [`diligence-room-vision.md`](diligence-room-vision.md)
@@ -207,18 +207,18 @@ $ # same endpoint, unauthorized corridor:
 
 | Artifact | Where |
 |---|---|
-| **Hosted dashboard** (Overview · Findings+Trace · Security · Registry, live Firestore tallies) | https://diligence-room-dashboard-378831539922.asia-south1.run.app |
+| **Hosted dashboard** (Overview · Findings+Trace · Documents · Security · Registry, live Firestore tallies) | https://diligence-room-dashboard-378831539922.asia-south1.run.app |
 | **Hosted gateway** (policy edge, `/gateway/decide`) | https://gateway-378831539922.asia-south1.run.app |
 | **Agent Runtime / Vertex AI Agent Engine** (deployed ADK agent, async invoke verified) | `projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648` |
-| **Cloud Trace** (GenAI spans; finding `audit_trace_id` resolves) | [console link above](https://console.cloud.google.com/traces/list?project=diligence-room&tid=550be385b6e9635d2be2e233e43ca7d0) |
+| **Cloud Trace** (GenAI spans; finding `audit_trace_id` resolves) | [console link above](https://console.cloud.google.com/traces/list?project=diligence-room-live&tid=d77658309933cf2ff4a5d336e9960a64) |
 | **Architecture diagram** | [`docs/diagram/architecture.svg`](docs/diagram/architecture.svg) |
 | **Demonstration video** (≤4 min; backend on Google Cloud: Cloud Run URLs, Agent Runtime / Vertex AI Agent Engine, Cloud Console) | link added on the submission form |
 | **Deployment receipts** (gcloud outputs, IDs, timestamps) | [`docs/evidence/live-deployment.txt`](docs/evidence/live-deployment.txt) |
 
-Serving runs in `europe-west1` (within deal-falcon's declared US+EU region
-set); the us-central1 control plane was cache-stale after a project undelete
-and the deploy scripts redeploy there with one idempotent command each once it
-reconciles.
+Serving runs in `asia-south1`, with a second Cloud Run region in
+`us-central1`. Firestore sits in `asia-south1` alongside the services: the
+round trip from the operator's location was 834 ms against the original region
+and 156 ms here, which took a full replay from 262 s to 57 s.
 
 ## Checkable numbers
 
@@ -375,7 +375,7 @@ diligence-room/
 ├── observability/  OTel GenAI semantic conventions → Cloud Trace
 ├── coordination/   Red-flag scoring, escalation
 ├── redteam/        20-attack red-team suite + scorecard
-├── dashboard/      FastAPI backend + React frontend (4 views)
+├── dashboard/      FastAPI backend + React frontend (6 views)
 ├── data/           Synthetic Vantage Robotics dataset + replay scenarios
 ├── evals/          Golden set + shadow evaluation harness
 └── tests/          Isolation, evidence-gate, guards, and unit tests
