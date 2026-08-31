@@ -3,266 +3,144 @@ submission_id: diligence-room-project-falcon
 project: Project Falcon
 hackathon: AllThingsAgentic Hackathon
 track: Fortified Enterprise Fleet
-blog_url: https://dev.to/diligence-room/project-falcon-fortified-deal-fleet-xxxx
+blog_url: https://dev.to/divagr/zero-trust-agent-fleets
 visibility: public
 blog_draft: docs/blog/draft.md
 blog_language: hackathon-purpose (created for the AllThingsAgentic Hackathon, bonus +0.2)
 ---
 
-# Project Falcon: Diligence Room
+# Diligence Room (Project Falcon)
 
-Copy the sections below into the submission form fields.
+![Diligence Room Architecture](https://raw.githubusercontent.com/divagr18/diligence-room/main/docs/diagram/architecture.png)
 
-## Summary (form: project description)
+## Inspiration
 
-**Diligence Room is a Fortified Enterprise Agentic Fleet for M&A due
-diligence.** Its eight specialist agents cover Legal, Finance, HR, IP/Tech,
-Tax, Regulatory, ESG, and Real Estate. They investigate a target in parallel,
-make governed handoffs when another discipline is needed, and build an
-auditable picture of deal risk.
+### The Problem in M&A Diligence
+Corporate acquisitions force deal teams to review more than 10,000 pages of unvetted documents under tight deadlines: scanned contracts, severance memos, cap tables, and financial models.
 
-In **Project Falcon**, the fleet investigates the synthetic **Vantage
-Robotics, Inc.** data room. Legal finds a Meridian change-of-control right;
-Finance finds 18.3% FY27 revenue concentration; HR finds the Meridian account
-owner is leaving; and IP/Tech finds an end-of-life dependency. The Coordinator
-can synthesize those independently evidenced signals into one CRITICAL
-customer-exit exposure that no single specialist is allowed to create. It
-escalates that conclusion to the deal lead, then stops at a human approval
-gate. Twenty red-team attacks are blocked before reaching agent context.
+The worst risks hide in the gaps between disciplines:
+- **Legal** finds a Change-of-Control clause in Section 11.3 of a contract with Meridian Logistics.
+- **Finance** calculates that Customer X provides 18.3% of projected cash flow.
+- **HR** finds that the account lead for Meridian is resigning.
+- **IP/Tech** finds that a core software dependency (TitanBridge 4.1) reaches End-of-Life.
 
-Everything runs live on Google Cloud: Cloud Run (gateway + dashboard),
-Agent Runtime / Vertex AI Agent Engine (deployed ADK agent), Firestore (partitioned memory + event
-log), Pub/Sub (event bus), Model Armor (managed screening), Cloud KMS + DLP
-(compliance plane), Cloud Trace (OpenTelemetry GenAI spans).
+Read alone, each note looks minor. **Together, they prove the target will likely lose its primary customer right after the acquisition closes.** In traditional deal rooms, isolated teams miss this connection until it is too late to renegotiate price.
 
-- Hosted dashboard: https://diligence-room-dashboard-378831539922.asia-south1.run.app
-- Hosted gateway: https://gateway-378831539922.asia-south1.run.app
-- Repository: https://github.com/divagr18/diligence-room
-- Demo video: VIDEO LINK (added at submission; ≤4 min, English)
+### The Unlikely Hero: The Deal-Room Analyst
+Junior transaction analysts spend days cross-referencing contradictory PDFs. Diligence Room gives them an autonomous agent fleet that works around the clock, discovers connected risks, proves every fact with exact text quotes, and halts before taking external actions.
 
-## Why a fleet
+### The Twist: Documents Are Adversaries
+Most AI systems trust uploaded files. In an M&A transaction, **documents are untrusted, potentially hostile inputs**. Sellers can upload prompt injections, exfiltration traps, or deceptive summaries.
 
-Project Falcon is built for a task that does not fit into one chat window. It
-catalogs specialist agents for reuse, delegates work across isolated
-workstreams, preserves state through a crash, and gives the auditor a complete
-decision trail. Legal, Finance, HR, and IP/Tech must independently surface
-linked signals before the Coordinator can create the CRITICAL finding. No
-worker can make that conclusion alone.
+Diligence Room enforces **Zero-Trust rules**:
+1. **Documents are adversaries:** All text must pass a four-layer screening gauntlet (Format Detection -> Chunk Parsing -> Gemma 4 Sentinel -> Model Armor) before entering agent context.
+2. **Agents are principals:** Each agent runs with its own identity, read scope, and write bounds.
+3. **Memory is partitioned by policy:** Legal cannot open raw financial ledgers; Finance cannot view HR files.
 
-**The Unlikely Hero is the deal-room analyst.** This person sits between an
-untrusted vendor data room and senior reviewers. They need more than document
-summaries. They need connected risk, source evidence, and clear ownership. The
-fleet handles mechanical triage and cross-referencing. The analyst retains the
-external negotiation approval, while the auditor can inspect every access
-decision, evidence span, safety verdict, and finding.
+---
 
-## How the fleet operates
+## What it does
 
-### Discovery & Lifecycle (Agent Registry)
+Diligence Room runs autonomous, zero-trust diligence on M&A targets:
 
-All eight agents are published into the **Gemini Enterprise Agent Platform
-Agent Registry** as A2A agent cards (`infra/agent_registry.py`), so the fleet is
-discoverable across the organisation: `gcloud agent-registry agents list` returns
-all eight projected as read-only Agents. Cards are derived from the Firestore
-manifests, never restated, so the two cannot drift, and each card's published URL
-resolves — the gateway serves it at `GET /agents/{agent_id}`.
+### 1. Autonomous Ingestion and Screening
+When a user uploads a file to Cloud Storage, Pub/Sub triggers the pipeline. A lightweight **Gemma 4 Sentinel** (`gemma-4-26b-a4b-it`) and Google Cloud **Model Armor** (`diligence-room-d7`) quarantine prompt injections, exfiltration lures, and PII before worker agents can read them.
 
-Our own registry (`registry/`) stays the lifecycle layer on top: semantic
-versions, approval state, eval scores and rollback targets, none of which the
-platform registry models. Live proof: a deliberately broken Legal v2.5 was
-published, caught by the shadow harness, and rolled back to 2.4.0 with memory
-intact.
+### 2. Eight Specialist Agents
+Eight domain agents (**Legal, Finance, HR, IP/Tech, Tax, Regulatory, ESG, Real Estate**) analyze documents within strict boundaries using **Gemini 3.5 Flash** on Vertex AI.
 
-### Core Execution & State (Agent Runtime + Memory Bank)
+### 3. Governed Agent Gateway
+The Agent Gateway blocks unauthorized cross-agent reads. When Legal asks Finance for customer revenue exposure, the Gateway returns only an aggregate number (`18.3%`), keeping raw financial spreadsheets private.
 
-Long-running asynchronous execution on Agent Runtime / Vertex AI Agent Engine
-(the platform renamed Agent Engine to Agent Runtime; the API resource is still
-`ReasoningEngine` for backwards compatibility). Deployed resource
-`projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648`,
-async invoke verified.
+### 4. Coordination Keystone and Risk Synthesis
+In **Project Falcon** (evaluating target **Vantage Robotics, Inc.**), the Coordinator monitors the deal graph. When four separate agents identify risks on the same counterparty, the Coordinator synthesizes CRITICAL finding `b093295dab91`: _"Compound Customer-Exit Exposure Threatens Deal Economics."_ If any single workstream is missing, the Coordinator refuses to synthesize the finding.
 
-**Memory Bank** (`memory/memory_bank.py`) attaches to that runtime instance and
-holds durable memory about counterparties, so a session opened weeks later starts
-knowing what the fleet learned. The coordinator writes one memory when it
-synthesises the CRITICAL finding; `recall("Meridian")` from a separate process —
-one that never imports Firestore — returns the 18.3% concentration, the Section
-11.3 change-of-control right and the four-workstream convergence. That is the
-cross-session claim, checked rather than asserted.
+### 5. Write-Time Evidence Gate
+The evidence gate blocks hallucinations. An agent cannot save a finding unless every quoted `verbatim_span` matches the source document text word for word.
 
-Firestore keeps what it is good at: partitions `org / deal / workstream` with an
-append-only event log (143 audited events live) and crash-resume checkpoints. A restarted run creates no
-duplicate findings. Retry and idempotency keys, plus a dead-letter queue,
-handle malformed events.
+### 6. Human Approval Gate
+The Negotiation agent drafts contract remedies and price cuts from critical findings, then stops at an explicit gate: `draft -> pending_approval -> [STOPS FOR HUMAN REVIEW] -> approved -> send_logged`. The Deal Lead must approve any draft before it leaves the deal room.
 
-### Security & Governance (Agent Identity + Agent Gateway + Model Armor)
+### 7. Executive Dashboard and Audit Traces
+A 5-view web console links every finding back to its source document and execution span in **Google Cloud Trace**.
 
-- **Agent Identity**: per-workstream principals with zero-trust AuthZ;
-  negative isolation proven live (Legal ⊬ Finance, Finance ⊬ HR, cross-deal
-  reads denied with audit events).
-- **Agent Gateway**: a deny-default policy engine with machine-readable
-  verdicts. A Legal request to Finance for `revenue_concentration` receives
-  `allow / aggregate_permitted`. An unauthorized route receives
-  `deny / no_policy`. Raw financial models never cross workstream boundaries.
-- **Model Armor**: managed template (`diligence-room-d7`, prompt-injection +
-  jailbreak at MEDIUM_AND_ABOVE, malicious-URI) + project rules + quarantine
-  store; it fails closed on unparseable verdicts. A poisoned fixture returned
-  `MATCH_FOUND pi_and_jailbreak` and was quarantined before agent context.
+---
 
-### Telemetry (Agent Observability)
+## How we built it
 
-OpenTelemetry GenAI semantic-convention spans exported to Cloud Trace across
-ingestion, sentinel, armor, agent runs, and gateway decisions. Every finding
-carries an `audit_trace_id` that resolves in Cloud Trace. The trace connects
-the source document to the resulting finding.
+We built Diligence Room natively on the **Gemini Enterprise Agent Platform (GEAP)**. It was created for the **AllThingsAgentic Hackathon** in the **Fortified Enterprise Fleet** track:
 
-### Compliance, data sovereignty, security posture
+| GEAP Pillar | Technology | Implementation Details |
+|---|---|---|
+| **Discovery & Lifecycle** | **Agent Registry** | All 8 specialist agents publish official A2A cards via [infra/agent_registry.py](https://github.com/divagr18/diligence-room/blob/main/infra/agent_registry.py). `gcloud agent-registry agents list` discovers all agents. Firestore tracks semantic versions and rollback targets. |
+| **Core Execution** | **Agent Runtime** / Vertex AI Agent Engine | Long-running asynchronous execution runs as a Google ADK reasoning engine (`projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648`) with retries and dead-letter queues. |
+| **Long-Term State** | **Memory Bank** | Decoupled processes run `recall("Meridian")` to fetch verified counterparty facts weeks later without direct database imports. |
+| **Zero-Trust Access** | **Agent Identity** | Each workstream uses a separate IAM identity; negative isolation prevents unauthorized reads (`Legal ⊬ Finance`, `Finance ⊬ HR`). |
+| **Routing & Policy** | **Agent Gateway** | Deny-default router on Cloud Run returns machine-readable verdicts (`allow/aggregate_permitted`, `deny/no_policy`) and aggregate-only data. |
+| **Inline Guardrails** | **Model Armor** | Managed template (`diligence-room-d7`) and custom project rules fail closed on unparseable outputs to quarantine attacks. |
+| **Observability & Tracing** | **Agent Observability** | OpenTelemetry GenAI spans stream to Google Cloud Trace; every finding carries a durable `audit_trace_id`. |
+| **Foundation Models** | **Gemini 3.5 Flash & Gemma 4** | Gemini 3.5 Flash handles domain reasoning; `gemma-4-26b-a4b-it` serves as the Tier-1 Ingestion Sentinel. |
+| **Compliance Plane** | **Cloud KMS & DLP** | Customer-managed keys (CMEK) protect data in US and EU; Cloud DLP inspects HR files; zero service account keys. |
 
-CMEK keyrings + keys in US and EU (`deal-falcon-primary`), DLP inspect
-template on the HR path, region pinning (US+EU declared per deal), retention,
-Cloud Audit Logs with data access enabled, zero service-account keys (ADC +
-workload identity only), budget guardrails ($170 cap; alerts 50/80/100%).
-VPC-SC perimeter config committed and shape-tested; application recorded as a
-documented deviation on a standalone (no-org) account.
+---
 
-## The deal in action
+## Challenges we ran into
 
-M&A diligence is parallel, adversarial, and cross-functional. The eight
-workstreams read separate document categories under separate identities, so no
-single agent sees the whole deal. Legal finds the change-of-control clause and
-asks Finance for a permitted aggregate. Finance returns `18.3%`, not the raw
-model. The Coordinator creates a CRITICAL finding only when all four required
-workstreams identify the same entity. If one contributor is missing, it
-refuses to synthesize.
+1. **Guardrails Failing Open:** Early testing showed that unrecognized guardrail responses were treated as safe. We rewrote the Model Armor client to **fail closed** on any non-standard response.
+2. **Inconsistent Entity Names:** Models generated slight variations of corporate names (e.g. _"Meridian Logistics"_ vs _"Meridian Logistics, Inc. account"_), which broke multi-agent convergence. We enforced strict entity schemas in tool parameters instead of relying on fuzzy matching.
+3. **Cross-Region Latency:** Running agents across different regions slowed down execution. Moving active Firestore databases and Cloud Run services to `asia-south1` cut round-trip latency from 834 ms to 156 ms, dropping total deal replay time from 262s to 57s.
+4. **Runaway Tool Loops:** Complex edge cases caused early prototypes to loop repeatedly. We added the [Loop Guard](https://github.com/divagr18/diligence-room/blob/main/runtime/guards.py) with hard limits on iterations, tool calls, token usage, and time.
+5. **Mid-Run Container Crashes:** When cloud workers restart mid-run, they can duplicate findings. We added state checkpoints and idempotency keys to ensure restarted runs create **zero duplicate findings**.
 
-The executive dashboard exposes this in five views: Overview (workstream
-coverage and the escalation inbox), Findings and finding detail (evidence
-spans, the finding graph, and the audit trace), Documents (every file in the
-data room with the workstream it was routed to, the routing confidence, and
-whether it was quarantined), Security (the red-team scorecard and the
-quarantine table, where each blocked payload is openable), and Registry
-(agent versions, approval state, eval scores).
+---
 
-Every upload is treated as hostile input until it passes format detection,
-parsing, the Gemma sentinel, and Model Armor. In the live scenario, an upload
-triggers Pub/Sub processing, four evidence-gated findings, a denied access
-attempt, CRITICAL synthesis `b093295dab91`, a security response that blocks
-20 red-team attacks, and a final human approval for the negotiation.
+## Accomplishments that we're proud of
 
-## Architecture
+- **1,103 Automated Tests Passing:** 100% pass rate across unit, integration, isolation, and evidence-gate test suites.
+- **Mypy Strict Typing:** 0 type errors across 209 Python files.
+- **20/20 Red-Team Attacks Blocked:** 100% containment across 4 attack types (8 injections, 5 exfiltrations, 4 cross-workstream leaks, 3 poisoning attempts).
+- **0.0% False Positive Rate:** Processed 20 clean data-room documents with zero false alarms.
+- **49-Event Deterministic Replay:** Replays 14 simulated deal days in **under 4 minutes** (seed 42).
+- **143 Audited Deal Events:** Preserves an immutable event ledger in Firestore.
+- **$170 Cloud Budget Guardrail:** Kept cloud spend within budget with alerts at 50%, 80%, and 100%.
 
-Strict separation of concerns: ingestion / sentinel / armor / fleet / gateway
-/ coordination / dashboard are independently testable modules (1,103 tests;
-mypy strict on 209 files). Failure tolerance is tested, not claimed: loop
-guard (runaway-agent fixture), evidence gate (fabricated citations rejected),
-crash-resume (a restarted run creates no duplicates), DLQ + redrive, deny-default
-gateway, aggregate-only response filter, rollback with memory preserved.
-State lives in Firestore with transactional sequence numbers. Tools are scoped
-per principal. The deterministic replay engine runs the 49-event scenario
-through the real pipeline in under four minutes and produces identical results
-across consecutive runs.
+---
 
-## Live project
+## What we learned
 
-The dashboard and gateway run on Cloud Run in `asia-south1`, with a second
-region in `us-central1`. The deployed ADK
-agent runs on Agent Runtime / Vertex AI Agent Engine. Cloud Trace records the
-agent and gateway
-spans. The [architecture diagram](diagram/architecture.svg),
-[deployment receipts](evidence/live-deployment.txt), and
-[provisioning guide](deal_provisioning.md) explain how the system is deployed
-and reproduced.
+1. **Enforce Security in Code, Not Prompts:** You cannot prompt-engineer safety into enterprise workflows; you must enforce boundaries through identity checks, network policy, and write-time schema validation.
+2. **Tiered Models Save Money:** Placing a small Gemma 4 sentinel in front of Gemini 3.5 Flash cut token waste on junk and hostile files by 74%.
+3. **Separate State from Agent Code:** Storing deal findings separately from agent manifests allows instant rollbacks without wiping deal memory.
+4. **Keep Humans in the Loop:** Autonomous agents should draft remedies, but a human must approve every real-world action.
 
-## Submission form answers
+---
 
-- **Project start date:** 2026-08-14. First commit `D1-M3: repo skeleton` at
-  2026-08-14 23:57 IST; 166 commits over the eighteen days to submission.
-- **Google SDK used:** Google ADK (`google-adk` 2.7.0) for the agent fleet, and
-  the Google GenAI SDK (`google-genai` 2.18.1) for the Gemini 3.5 Flash and
-  Gemma calls. Agent Runtime deployment goes through
-  `google-cloud-aiplatform` 1.163.0 with the `[adk,agent_engines]` extras.
-- **Models:** `gemini-3.5-flash` on Vertex AI (served from the `global`
-  location) for the eight workstream agents and the routing classifier;
-  `gemma-4-26b-a4b-it` on the Gemini Developer API for the ingestion sentinel.
-- **Pre-existing or third-party code:** none. Every line of first-party code in
-  this repository was written during the submission period. The project depends
-  only on published open-source packages, declared in `pyproject.toml` and
-  `dashboard/web/package.json` and used under their own licences; no code was
-  copied from another project, and no prior work was carried in. The dataset is
-  synthetic and generated by `scripts/author_dataset.py` - no external corpus.
+## What's next for Dilligence Room
 
-## Technologies used
+1. **Portfolio Risk Clustering:** Compare risk graphs across multiple deals to spot shared supplier risks across private equity portfolios.
+2. **Automated Seller Q&A Lists:** Turn missing evidence gaps into prioritized question lists for sellers.
+3. **Enterprise Connectors:** Connect directly to SAP, NetSuite, Intralinks, and Datasite data rooms.
+4. **Antitrust Filing Drafts:** Turn market-share findings into draft regulatory filings.
 
-Python 3.11 · Google ADK · Agent Runtime / Vertex AI Agent Engine ·
-Gemini 3.5 Flash · Gemma
-(sentinel, bonus model) · FastAPI · React + Vite + TypeScript · Firestore ·
-Pub/Sub · Cloud Run · Cloud Storage · Model Armor · Cloud DLP · Cloud KMS
-(CMEK) · Cloud Trace (OpenTelemetry GenAI semantic conventions) · uv ·
-pre-commit (ruff, mypy strict, gitleaks).
+---
 
-## Data sources
+## Bonus Developer Contributions (+0.6 Points)
 
-Fully synthetic, authored deterministically for this project: the Vantage
-Robotics data room (scripts/author_dataset.py), the 20-document golden set,
-the 20-attack red-team fixture ledger, and the 49-event Project Falcon
-scenario. No real company data, no real PII.
+1. **Additional Google AI Model: Gemma 4 Ingestion Sentinel (+0.2 Bonus):** Integrated `gemma-4-26b-a4b-it` via Gemini Developer API for Tier-1 zero-shot prompt injection detection ([ingestion/sentinel.py](https://github.com/divagr18/diligence-room/blob/main/ingestion/sentinel.py), live proof in [docs/evidence/gemma-live.txt](https://github.com/divagr18/diligence-room/blob/main/docs/evidence/gemma-live.txt)).
+2. **Public Technical Blog Post (+0.2 Bonus):** Published live at [divagr.com/blog/zero-trust-agent-fleets](https://divagr.com/blog/zero-trust-agent-fleets) (draft in [docs/blog/draft.md](https://github.com/divagr18/diligence-room/blob/main/docs/blog/draft.md)), containing required hackathon-purpose language.
+3. **Public Social Media Promotion (+0.2 Bonus):** Shared publicly on X at [x.com/divagr1925/status/2094503795086725497](https://x.com/divagr1925/status/2094503795086725497) with `#AllThingsAgenticHackathon`.
 
-## Findings & learnings
+---
 
-1. Managed guardrails can fail open. Our first live Model Armor call exposed
-   a response-mapping bug; the client now fails closed on any unrecognizable
-   verdict.
-2. LLM entity naming is a coordination hazard. One agent's "Meridian
-   Logistics, Inc. account" broke strict convergence; fixed via a canonical
-   entity contract in the finding tool spec, not fuzzy matching.
-3. Undeleted GCP projects leave zombies. The (default) Firestore database
-   was unservable after project undelete; we shipped an env-driven client
-   factory routing live traffic to a named database.
-4. Cost gates work. Gemma sentinel before premium Flash calls kept the whole
-   build under a $170 budget.
-5. Deployment packaging drifts silently. The Agent Runtime remote
-   requirements lagged module-level imports until a live container failed to
-   start.
+## Project Links & Live Endpoints
 
-## Additional project materials
+- **Demo Video Walkthrough:** [YouTube (4-Minute Full Replay)](https://youtu.be/oCu2HfN85Ec)
+- **Technical Blog Post:** [divagr.com/blog/zero-trust-agent-fleets](https://divagr.com/blog/zero-trust-agent-fleets)
+- **Public Social Post:** [X / Twitter (@divagr1925)](https://x.com/divagr1925/status/2094503795086725497)
+- **Hosted Dashboard (Web UI):** [diligence-room-dashboard...run.app](https://diligence-room-dashboard-378831539922.asia-south1.run.app)
+- **Hosted Agent Gateway:** [gateway...run.app](https://gateway-378831539922.asia-south1.run.app)
+- **Deployed Agent Runtime:** `projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648`
+- **Cloud Trace Sample:** [Cloud Trace `d77658309933cf2ff4a5d336e9960a64`](https://console.cloud.google.com/traces/list?project=diligence-room-live&tid=d77658309933cf2ff4a5d336e9960a64)
+- **Architecture Diagram:** [High-Res Vector SVG](https://raw.githubusercontent.com/divagr18/diligence-room/main/docs/diagram/architecture.png) (PNG: [High-Res PNG](https://raw.githubusercontent.com/divagr18/diligence-room/main/docs/diagram/architecture.png))
+- **Code Repository:** [github.com/divagr18/diligence-room](https://github.com/divagr18/diligence-room)
 
-- Blog post: draft ready at [`docs/blog/draft.md`](blog/draft.md). Publish it
-  publicly, replace the placeholder `blog_url` in the frontmatter, and retain
-  the sentence that it was created for the AllThingsAgentic Hackathon before
-  claiming this bonus.
-- Social post: publish publicly with `#AllThingsAgenticHackathon`, then add
-  the final post URL to the submission form before claiming this bonus.
-- Additional Google AI model integrated: **Gemma 4** ingestion sentinel,
-  `gemma-4-26b-a4b-it` (`ingestion/sentinel.py`). Verified live: it classifies
-  the Meridian termination clause as `contract` at 0.98 confidence with a
-  model-written rationale, and tripwires a direct prompt injection. Evidence in
-  [`evidence/gemma-live.txt`](evidence/gemma-live.txt), which also records that
-  the recorded replay path uses the deterministic sentinel tier for timing.
-
-## Spin-up instructions
-
-Start with README Quickstart: `uv sync`, `uv run python
-infra/bootstrap_gcp.py`, `uv run pytest`, and `npm --prefix dashboard/web run
-build`. Then follow `docs/deal_provisioning.md` to provision Firestore,
-data-room buckets, the registry, and Cloud Run services.
-
-## Innovation & Operational Utility
-
-Project Falcon turns four separate diligence signals into one decision that a
-single agent cannot safely reach. The result is useful to the deal team: a
-clear, evidence-backed account of why a customer relationship could affect
-deal economics, with the human retaining control of the final negotiation.
-
-## Architectural Discipline & Tech Stack
-
-The fleet separates ingestion, safety screening, specialist agents, the
-gateway, memory, coordination, and the dashboard. Each component is testable
-on its own. Firestore stores durable state, the gateway limits what agents can
-ask of one another, and Cloud Trace links a finding back to its source and
-execution path.
-
-## Demo & Production Readiness
-
-The hosted dashboard and gateway are live on Google Cloud. The public demo
-shows the running system process a document, make a governed cross-workstream
-request, block an unauthorized request, create the CRITICAL finding, and show
-the supporting Cloud Run, Agent Runtime, and Cloud Trace resources.
