@@ -2,8 +2,8 @@
 
 Routing decisions are pure: no event emission here — the pipeline owns the
 ``document.routed`` event. ``FakeClassifier`` is the deterministic offline
-decision engine; ``FlashClassifier`` is the guarded live client
-(gemini-3.5-flash is served only at location=global, see docs/model_ids.md).
+decision engine; ``FlashClassifier`` is the guarded live client served from
+the global location.
 """
 
 from __future__ import annotations

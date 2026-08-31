@@ -6,8 +6,8 @@
 [![Gemma Sentinel](https://img.shields.io/badge/Sentinel-Gemma_4_26B-EA4335?logo=google)](https://ai.google.dev/)
 [![Vertex AI](https://img.shields.io/badge/Vertex_AI-Agent_Engine_/_Runtime-FBBC05?logo=googlecloud)](https://cloud.google.com/vertex-ai)
 [![Security Red-Team](https://img.shields.io/badge/Red--Team_Score-20%2F20_Blocked-brightgreen)](redteam/expected.yaml)
-[![Tests](https://img.shields.io/badge/Tests-1%2C103_Passing-brightgreen)](tests/)
-[![Mypy Strict](https://img.shields.io/badge/Mypy-Strict_(209_Files)-blue)](pyproject.toml)
+[![Tests](https://img.shields.io/badge/Tests-1%2C055_Passing-brightgreen)](tests/)
+[![Mypy Strict](https://img.shields.io/badge/Mypy-Strict-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 **A Fortified Enterprise Agentic Fleet for M&A Due Diligence on Google Cloud.** Eight specialist agents across **Legal, Finance, HR, IP/Tech, Tax, Regulatory, ESG, and Real Estate** turn a hostile data room into a defensible deal decision. They operate asynchronously in the background, discover compound risks no single reviewer can see, collaborate through governed handoffs, and leave an immutable evidence trail the deal team and auditors can trust.
@@ -22,19 +22,17 @@
 | Resource | Status & Link | Description |
 |---|---|---|
 | **Hosted Executive Dashboard** | [diligence-room-dashboard...run.app](https://diligence-room-dashboard-378831539922.asia-south1.run.app) | Live 5-view deal console (Overview, Findings, Documents, Security, Registry) |
-| **Hosted Agent Gateway** | [gateway...run.app](https://gateway-378831539922.asia-south1.run.app) | Deny-default policy enforcement & aggregate-only filtering edge |
+| **Hosted Agent Gateway** | [gateway...run.app/docs](https://gateway-378831539922.asia-south1.run.app/docs) | Interactive API documentation for the deny-default policy edge |
 | **Demo Video Walkthrough** | [YouTube (4-Minute Full Replay)](https://youtu.be/oCu2HfN85Ec) | Full walkthrough showing live GCP backend, Cloud Trace, and zero-trust synthesis |
 | **Technical Blog Post** | [divagr.com/blog/zero-trust-agent-fleets](https://divagr.com/blog/zero-trust-agent-fleets) | Deep dive into 4-layer screening gauntlet, GEAP architecture, and failure tolerance |
 | **Social Promotion** | [X / Twitter (@divagr1925)](https://x.com/divagr1925/status/2094503795086725497) | Public announcement with `#AllThingsAgenticHackathon` |
 | **Agent Runtime / Vertex AI Engine** | `projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648` | Deployed ADK reasoning engine with verified asynchronous execution |
-| **Cloud Trace (GenAI Spans)** | [Cloud Trace `d77658309933cf2ff4a5d336e9960a64`](https://console.cloud.google.com/traces/list?project=diligence-room-live&tid=d77658309933cf2ff4a5d336e9960a64) | End-to-end OTel trace from document ingestion to CRITICAL finding synthesis |
-| **Architecture Blueprint** | [`docs/diagram/architecture.png`](docs/diagram/architecture.png) · Source: [`Architecture.tsx`](docs/diagram/Architecture.tsx) | Four-layer stack with compliance plane, sentinel gate, and trace boundaries |
-| **Live Deployment Receipts** | [`docs/evidence/live-deployment.txt`](docs/evidence/live-deployment.txt) | Complete log of gcloud outputs, resource IDs, and deployment timestamps |
+| **Architecture Blueprint** | [`docs/diagram/architecture.png`](docs/diagram/architecture.png) | Four-layer stack with compliance plane, sentinel gate, and trace boundaries |
 | **GCP Project** | `diligence-room-live` (`378831539922`) | Multi-region deployment (`asia-south1` + `us-central1`, Firestore `asia-south1` + `nam5`) |
 
 ---
 
-## Criteria 1: Innovation & Operational Utility (40%)
+## Criteria 1: Innovation & Operational Utility
 
 ### The Problem and the Analyst
 Corporate acquisitions force deal teams to review thousands of unvetted pages under tight deadlines. 
@@ -93,7 +91,7 @@ A single monolithic model fails this task:
 
 ---
 
-## Criteria 2: Architectural Discipline & Tech Stack (30%)
+## Criteria 2: Architectural Discipline & Tech Stack
 
 Diligence Room is built natively on the **Gemini Enterprise Agent Platform (GEAP)**, leveraging Google Cloud's core agentic infrastructure across all 7 enterprise pillars:
 
@@ -105,7 +103,7 @@ Diligence Room is built natively on the **Gemini Enterprise Agent Platform (GEAP
 | **Core Execution** | **Agent Runtime** / Vertex AI Agent Engine | Long-running asynchronous background execution with retry, idempotency, and dead-letter queues | [`runtime/`](runtime/), [`infra/deploy/agent_engine.py`](infra/deploy/agent_engine.py) · Resource `reasoningEngines/7141202128323739648` |
 | **Long-Term State** | **Memory Bank** | Durable entity memory across multi-week sessions; Firestore stores partitioned event streams and crash checkpoints | [`memory/memory_bank.py`](memory/memory_bank.py) · `recall("Meridian")` returns durable facts from isolated, uncoupled processes |
 | **Security & Governance** | **Agent Identity** | Zero-trust per-agent principals, manifest-to-identity binding, and agent→data / human→output AuthZ | [`identity/`](identity/) · Live negative isolation: `Legal ⊬ Finance`, `Finance ⊬ HR`, cross-deal access denied |
-| **Routing & Policy** | **Agent Gateway** | Deny-default policy router with machine-readable verdicts (`allow/aggregate_permitted`, `deny/no_policy`) | [`gateway/`](gateway/) · Cloud Run edge: [`gateway...run.app`](https://gateway-378831539922.asia-south1.run.app) |
+| **Routing & Policy** | **Agent Gateway** | Deny-default policy router with machine-readable verdicts (`allow/aggregate_permitted`, `deny/no_policy`) | [`gateway/`](gateway/) · Cloud Run API docs: [`gateway...run.app/docs`](https://gateway-378831539922.asia-south1.run.app/docs) |
 | **Inline Guardrails** | **Model Armor** | Managed template (`diligence-room-d7`) + custom project rules + quarantine store; fails closed | [`armor/`](armor/) · 20/20 attacks quarantined before agent context (`MATCH_FOUND pi_and_jailbreak`) |
 | **Telemetry & Tracing** | **Agent Observability** | OpenTelemetry GenAI semantic-convention spans exported to Google Cloud Trace | [`observability/`](observability/) · Finding `b093295dab91` carries durable `audit_trace_id` in Cloud Trace |
 | **Data Sovereignty** | **Compliance Plane** | Cloud KMS (CMEK) keyrings in US+EU, Cloud DLP inspect templates, region pinning, zero SA keys | [`compliance/`](compliance/), [`infra/compliance_config/`](infra/compliance_config/) · KMS `deal-falcon-primary`, DLP `deal-falcon-hr-inspect` |
@@ -120,8 +118,8 @@ The judging rubric demands real answers to the hardest multi-agent failure modes
 | **Mid-Run Worker Crash** | **Crash-Resume & Idempotency:** Append-only transactional event log with sequence checkpoints. Process restart resumes from last checkpoint with **zero duplicate findings**. | [`runtime/checkpoint.py`](runtime/checkpoint.py), [`tests/test_crash_resume.py`](tests/test_crash_resume.py) |
 | **Poisoned / Corrupted Events** | **Dead-Letter Queue (DLQ):** Exponential backoff with idempotency keys; unrecoverable events isolate to DLQ with automated redrive tooling. | [`runtime/dlq.py`](runtime/dlq.py), failure drill logs |
 | **Cross-Workstream Leakage** | **Partitioned Dispatcher:** Zero-trust AuthZ checks before tool execution; denials emit structured audit events. | [`tests/test_isolation.py`](tests/test_isolation.py) |
-| **Bad Agent Version Deploy** | **Registry Rollback:** Seamless rollback to previous approved semantic version via `rollback_target`; deal partition memory remains intact. | [`docs/evidence/d12-registry-rollback.txt`](docs/evidence/d12-registry-rollback.txt) |
-| **Model Armor Fail-Open Risk** | **Fail-Closed Architecture:** Client rewritten to fail strictly closed on any ambiguous or unparseable upstream security verdict. | [`armor/model_armor.py`](armor/model_armor.py), [`docs/evidence/d7-live-armor.txt`](docs/evidence/d7-live-armor.txt) |
+| **Bad Agent Version Deploy** | **Registry Rollback:** Seamless rollback to previous approved semantic version via `rollback_target`; deal partition memory remains intact. | [`registry/store.py`](registry/store.py), [`tests/test_registry_rollback.py`](tests/test_registry_rollback.py) |
+| **Model Armor Fail-Open Risk** | **Fail-Closed Architecture:** Client rewritten to fail strictly closed on any ambiguous or unparseable upstream security verdict. | [`armor/model_armor.py`](armor/model_armor.py), [`tests/test_model_armor.py`](tests/test_model_armor.py) |
 
 ---
 
@@ -129,9 +127,6 @@ The judging rubric demands real answers to the hardest multi-agent failure modes
 
 
 ![Diligence Room system architecture](docs/diagram/architecture.png)
-
-*Source: [`docs/diagram/Architecture.tsx`](docs/diagram/Architecture.tsx) — a React component rendered to PNG by [`dashboard/web/render-diagram.mjs`](dashboard/web/render-diagram.mjs).*
-
 
 ---
 
@@ -141,8 +136,8 @@ Every claim in this repository is backed by reproducible automated tests and liv
 
 | Metric | Target / Result | Verification Source |
 |---|---|---|
-| **Unit & Integration Test Battery** | **1,103 Passing** (0 Failures) | Run `uv run pytest` |
-| **Static Type Safety** | **Mypy Strict across 209 files** | Configured in `pyproject.toml` |
+| **Unit & Integration Test Battery** | **1,055 Passing** (0 Failures) | Run `uv run pytest` |
+| **Static Type Safety** | **Mypy Strict** | Configured in `pyproject.toml` |
 | **Security Red-Team Ledger** | **20/20 Attacks Blocked (100%)** | [`redteam/expected.yaml`](redteam/expected.yaml) |
 | **False-Positive Rate on Clean Corpus** | **0.0% False Positives (20 clean docs)** | [`tests/test_golden_set.py`](tests/test_golden_set.py) |
 | **Deterministic Offline Replay** | **49 Events in < 4 minutes (Seed 42)** | [`runtime/replay.py`](runtime/replay.py) |
@@ -150,6 +145,26 @@ Every claim in this repository is backed by reproducible automated tests and liv
 | **Secrets & Credential Security** | **0 Service Account Keys** (ADC & Workload Identity only) | [`infra/guardrails.py`](infra/guardrails.py) |
 | **GCP Cloud Budget Guardrail** | **$170 Hard Cap** (Alerts at 50% / 80% / 100%) | [`infra/bootstrap_gcp.py`](infra/bootstrap_gcp.py) |
 | **Audited Deal Events in Firestore** | **143 Audited Events** across deal lifecycle | `deals/deal-falcon/events` |
+
+---
+
+## How Evaluation, Red-Teaming, and Observability Work
+
+### Shadow evaluations
+
+The evaluation harness runs candidate agent logic through the same evidence-gated finding path used by the fleet. [`evals/golden_set.py`](evals/golden_set.py) pins a 20-document corpus: four keystone documents must produce exact findings, while 16 clean or irrelevant documents test over-reporting. [`evals/harness.py`](evals/harness.py) compares titles, severities, and affected entities against that baseline. Missing findings and severity downgrades fail the run; unexpected findings are reported for review. The deliberately weakened Legal v2.5 candidate in [`evals/legal_v25.py`](evals/legal_v25.py) proves that the harness catches a lost change-of-control finding.
+
+### Red-team testing
+
+[`redteam/runner.py`](redteam/runner.py) sends all 20 adversarial fixtures through the real ingestion pipeline rather than testing filters in isolation. [`redteam/expected.yaml`](redteam/expected.yaml) records the expected blocking layer and reason for each prompt injection, exfiltration lure, cross-workstream leak, and poisoning or cross-deal attack. A case passes only when the document is stopped before routing, at the expected layer, with the expected security reason. The scorecard reports the raw result, so one escaped fixture would remain 19/20 rather than being rounded away.
+
+### Observability and audit linkage
+
+OpenTelemetry spans cover `armor.screen`, `agent.tool`, `gateway.decide`, `coordinator.synthesize`, and every `negotiation.transition`. Stable service names separate ingestion, gateway, coordinator, negotiation, dashboard, and red-team traffic. Offline tests inject an in-memory exporter and assert span names and security attributes; live deployments attach the same instrumentation seam to Google Cloud Trace. Each stored finding carries an `audit_trace_id`, linking the executive result to the run that produced it. See [`observability/`](observability/), [`tests/test_stage_spans.py`](tests/test_stage_spans.py), and [`tests/test_trace_link.py`](tests/test_trace_link.py).
+
+### Safety and recovery checks
+
+The rest of the verification suite attacks operational failure modes directly: exact-quote evidence validation, negative workstream and cross-deal isolation, bounded tool loops, retry and dead-letter behavior, crash-resume without duplicate findings, registry rollback without memory loss, human approval before send, and deterministic 49-event replay. The relevant suites live in [`tests/test_evidence_gate.py`](tests/test_evidence_gate.py), [`tests/test_isolation.py`](tests/test_isolation.py), [`tests/test_guards.py`](tests/test_guards.py), [`tests/test_failure_drill.py`](tests/test_failure_drill.py), [`tests/test_crash_resume.py`](tests/test_crash_resume.py), and [`tests/test_replay.py`](tests/test_replay.py).
 
 ---
 
@@ -169,7 +184,7 @@ cd diligence-room
 # 2. Install Python 3.11 dependencies via uv
 uv sync
 
-# 3. Run the complete 1,103-test suite (includes shadow eval & red-team ledger)
+# 3. Run the complete 1,055-test suite (includes shadow eval & red-team ledger)
 uv run pytest
 
 # 4. Build the React + Vite dashboard frontend
@@ -208,7 +223,6 @@ uv run python infra/deploy/agent_engine.py invoke
 # 6. Deploy the Agent Gateway & Dashboard to Cloud Run
 uv run python infra/deploy/cloud_run.py deploy --confirm-live
 ```
-*For detailed day-by-day provisioning logs, refer to [`docs/deal_provisioning.md`](docs/deal_provisioning.md).*
 
 ---
 
@@ -273,22 +287,21 @@ $ curl -s -X POST https://gateway-378831539922.asia-south1.run.app/gateway/decid
 
 ---
 
-## Stage Three: Bonus Developer Contributions (+0.6 Points)
+## Stage Three: Project Extensions
 
-Diligence Room completes all three optional developer contribution categories for maximum bonus points:
+The core diligence workflow led to three extensions that make the project easier to evaluate and reuse:
 
-### 1. Additional Google AI Model: Gemma 4 Sentinel (+0.2 Bonus)
-- **Model:** `gemma-4-26b-a4b-it` deployed via the Gemini Developer API.
-- **Function:** Serves as the Tier-1 Ingestion Sentinel. Performs zero-shot adversarial prompt injection detection, PII extraction hints, and pre-classification before triggering premium Gemini 3.5 Flash calls.
-- **Live Evidence:** [`docs/evidence/gemma-live.txt`](docs/evidence/gemma-live.txt). Correctly classifies complex contract clauses at 0.98 confidence and tripwires adversarial payloads.
+### Gemma 4 Ingestion Sentinel
 
-### 2. Public Technical Blog Post (+0.2 Bonus)
-- **Live Article:** Published at [divagr.com/blog/zero-trust-agent-fleets](https://divagr.com/blog/zero-trust-agent-fleets) (draft in [`docs/blog/draft.md`](docs/blog/draft.md)).
-- **Required Language:** Explicitly states: *"Created for the AllThingsAgentic Hackathon in the Fortified Enterprise Fleet track."*
-- **Content:** Full technical breakdown of zero-trust runtime architecture, four-layer screening gauntlet, failure-tolerance engineering, and what broke during development.
+`gemma-4-26b-a4b-it` runs as the first model in the ingestion path. It screens documents for adversarial instructions and supplies classification hints before a file can reach Gemini 3.5 Flash. This tiered design reduced token use on hostile and irrelevant documents by 74%. The implementation lives in [`ingestion/sentinel.py`](ingestion/sentinel.py) and is covered by [`tests/test_sentinel.py`](tests/test_sentinel.py).
 
-### 3. Public Social Media Promotion (+0.2 Bonus)
-- **Live Post:** Announced publicly on X at [x.com/divagr1925/status/2094503795086725497](https://x.com/divagr1925/status/2094503795086725497) with the official hashtag `#AllThingsAgenticHackathon`.
+### Technical Build Article
+
+The [zero-trust agent fleets article](https://divagr.com/blog/zero-trust-agent-fleets) documents the four-layer screening path, the failures uncovered during testing, and the design changes that followed.
+
+### Public Demo Update
+
+The project was shared publicly on [X](https://x.com/divagr1925/status/2094503795086725497) with the demo and build context, giving reviewers a short route into the full repository and walkthrough.
 
 ---
 
@@ -296,7 +309,7 @@ Diligence Room completes all three optional developer contribution categories fo
 
 Building, breaking, and evaluating Diligence Room produced five vital insights for enterprise multi-agent engineering:
 
-1. **Managed Guardrails Can Fail Open:** In early testing, a response-mapping quirk in upstream guardrail outputs treated unrecognized verdicts as permissive. I re-engineered the Model Armor client to **fail strictly closed** on any non-standard or unparseable response ([`docs/evidence/d7-live-armor.txt`](docs/evidence/d7-live-armor.txt)).
+1. **Managed Guardrails Can Fail Open:** In early testing, a response-mapping quirk in upstream guardrail outputs treated unrecognized verdicts as permissive. I re-engineered the Model Armor client to **fail strictly closed** on any non-standard or unparseable response ([`armor/model_armor.py`](armor/model_armor.py)).
 2. **Entity Canonicalization is a Keystone Hazard:** LLMs naturally generate slight variations of entity names (e.g., *"Meridian Logistics"* vs. *"Meridian Logistics, Inc. account"*). Instead of introducing fuzzy matching (which degrades cross-workstream rigor), I enforced strict canonical entity contracts in the `finding_create` tool specification.
 3. **Multi-Region Latency Compounds in Multi-Agent Loops:** Shifting the active Firestore database and Cloud Run edge from `us-central1` to `asia-south1` (closer to operator test environments) dropped round-trip latency from 834 ms to 156 ms, slashing full deal replay time from 262s to 57s.
 4. **Cost Gating via Tiered Models is Crucial:** Placing a lightweight Gemma 4 sentinel in front of Gemini 3.5 Flash reduced unnecessary token burn on hostile and junk documents by 74%, keeping my entire multi-week build inside the $170 budget.
@@ -324,7 +337,7 @@ diligence-room/
 ├── redteam/        # 20-attack adversarial test ledger & automated scorecard
 ├── runtime/        # Asynchronous runtime, loop guards, checkpoints, crash-resume, DLQ
 ├── scripts/        # Deterministic dataset generation and replay tools
-└── tests/          # 1,103 automated tests (isolation, evidence gate, guards, etc.)
+└── tests/          # 1,055 automated tests (isolation, evidence gate, guards, etc.)
 ```
 
 ---

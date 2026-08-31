@@ -8,7 +8,7 @@ producers (``agents/fleet.py``) must surface for the four keystone documents. Th
 remaining sixteen documents carry no expected findings: they are the noise and
 scaffold corpus a correct fleet must not over-report on.
 
-Keystone pins are byte-exact and mirror ``tests/test_dataset_artifacts.py``:
+Keystone pins are byte-exact and validated by ``tests/test_golden_set.py``:
 
 - ``contract_meridian_logistics.pdf`` — CoC termination right at ``clause:11.3``
   (``COC_SPAN``: "may terminate…ninety (90) days").
@@ -30,7 +30,7 @@ from memory.findings import FindingSeverity
 
 _CUSTOMER_X: Final = "Meridian Logistics, Inc."
 
-# Keystone planted facts (byte-exact; mirrored in tests/test_dataset_artifacts.py).
+# Keystone planted facts (byte-exact; validated in tests/test_golden_set.py).
 COC_SPAN: Final = (
     "may terminate this Agreement by written notice delivered within ninety "
     "(90) days following a Change of Control"

@@ -13,20 +13,8 @@ The worst risks hide in the gaps between disciplines:
 
 Read alone, each note looks minor. **Together, they prove the target will likely lose its primary customer right after the acquisition closes.** In traditional deal rooms, isolated teams miss this connection until it is too late to renegotiate price.
 
-### The Unlikely Hero: The Deal-Room Analyst
-Junior transaction analysts spend days cross-referencing contradictory PDFs. Diligence Room gives them an autonomous agent fleet that works around the clock, discovers connected risks, proves every fact with exact text quotes, and halts before taking external actions.
 
-### The Twist: Documents Are Adversaries
-Most AI systems trust uploaded files. In an M&A transaction, **documents are untrusted, potentially hostile inputs**. Sellers can upload prompt injections, exfiltration traps, or deceptive summaries.
-
-Diligence Room enforces **Zero-Trust rules**:
-1. **Documents are adversaries:** All text must pass a four-layer screening gauntlet (Format Detection -> Chunk Parsing -> Gemma 4 Sentinel -> Model Armor) before entering agent context.
-2. **Agents are principals:** Each agent runs with its own identity, read scope, and write bounds.
-3. **Memory is partitioned by policy:** Legal cannot open raw financial ledgers; Finance cannot view HR files.
-
----
-
-## What it does
+## What we made
 
 Diligence Room runs autonomous, zero-trust diligence on M&A targets:
 
@@ -51,7 +39,17 @@ The Negotiation agent drafts contract remedies and price cuts from critical find
 ### 7. Executive Dashboard and Audit Traces
 A 5-view web console links every finding back to its source document and execution span in **Google Cloud Trace**.
 
----
+
+### The Unlikely Hero: The Deal-Room Analyst
+Junior transaction analysts spend days cross-referencing contradictory PDFs. Diligence Room gives them an autonomous agent fleet that works around the clock, discovers connected risks, proves every fact with exact text quotes, and halts before taking external actions. In Project Falcon, the analyst does not have to stumble across the connection by chance: the four workstreams bring it forward while there is still time to act.
+
+### The Twist: Documents Are Adversaries
+Most AI systems trust uploaded files. In an M&A transaction, **documents are untrusted, potentially hostile inputs**. Sellers can upload prompt injections, exfiltration traps, or deceptive summaries.
+
+Diligence Room enforces **Zero-Trust rules**:
+1. **Documents are adversaries:** All text must pass a four-layer screening gauntlet (Format Detection -> Chunk Parsing -> Gemma 4 Sentinel -> Model Armor) before entering agent context.
+2. **Agents are principals:** Each agent runs with its own identity, read scope, and write bounds.
+3. **Memory is partitioned by policy:** Legal cannot open raw financial ledgers; Finance cannot view HR files.
 
 ## How we built it
 
@@ -69,7 +67,6 @@ We built Diligence Room natively on the **Gemini Enterprise Agent Platform (GEAP
 | **Foundation Models** | **Gemini 3.5 Flash & Gemma 4** | Gemini 3.5 Flash handles domain reasoning; `gemma-4-26b-a4b-it` serves as the Tier-1 Ingestion Sentinel. |
 | **Compliance Plane** | **Cloud KMS & DLP** | Customer-managed keys (CMEK) protect data in US and EU; Cloud DLP inspects HR files; zero service account keys. |
 
----
 
 ## Challenges we ran into
 
@@ -79,7 +76,23 @@ We built Diligence Room natively on the **Gemini Enterprise Agent Platform (GEAP
 4. **Runaway Tool Loops:** Complex edge cases caused early prototypes to loop repeatedly. We added the [Loop Guard](https://github.com/divagr18/diligence-room/blob/main/runtime/guards.py) with hard limits on iterations, tool calls, token usage, and time.
 5. **Mid-Run Container Crashes:** When cloud workers restart mid-run, they can duplicate findings. We added state checkpoints and idempotency keys to ensure restarted runs create **zero duplicate findings**.
 
----
+## How we evaluate and defend the fleet
+
+### Shadow evaluations
+
+Our evaluation harness uses the same evidence-gated finding path as the fleet. A pinned 20-document golden set contains four keystone documents with exact expected titles, severities, entities, and source locators, plus 16 clean or irrelevant documents that test false positives. Candidate logic is compared with the baseline after a deterministic offline run. Missing findings and severity downgrades fail the evaluation; new findings are surfaced for review. We also keep a deliberately weakened Legal v2.5 candidate to confirm that the harness catches a lost change-of-control finding. The implementation is in [evals/golden_set.py](https://github.com/divagr18/diligence-room/blob/main/evals/golden_set.py) and [evals/harness.py](https://github.com/divagr18/diligence-room/blob/main/evals/harness.py).
+
+### Red-team testing
+
+The red-team runner feeds 20 hostile files through the full ingestion pipeline. The ledger covers eight prompt injections, five exfiltration attempts, four cross-workstream leaks, and three poisoning or cross-deal attacks. Each fixture declares the layer and security reason that should block it. A test passes only when the document stops before routing at that exact layer, and the scorecard reports raw totals without smoothing failures. See [redteam/runner.py](https://github.com/divagr18/diligence-room/blob/main/redteam/runner.py) and [redteam/expected.yaml](https://github.com/divagr18/diligence-room/blob/main/redteam/expected.yaml).
+
+### Observability and auditability
+
+OpenTelemetry spans instrument the armor screen, agent tools, gateway decisions, coordinator synthesis, and every negotiation state transition. Offline tests capture those spans in memory and assert their security attributes. Live runs export through the same instrumentation seam to Google Cloud Trace. Each finding stores an `audit_trace_id`, so the dashboard can connect an executive conclusion to the run that created it. The observability code and span tests live in [observability/](https://github.com/divagr18/diligence-room/tree/main/observability) and [tests/test_stage_spans.py](https://github.com/divagr18/diligence-room/blob/main/tests/test_stage_spans.py).
+
+### Failure and boundary testing
+
+Separate suites verify exact-quote evidence, cross-workstream and cross-deal denials, loop limits, retries, dead-letter handling, crash recovery without duplicates, registry rollback without memory loss, human approval before send, and the deterministic 49-event replay. These tests exercise the enforcement code directly rather than relying on model self-reporting.
 
 ## Accomplishments that we're proud of
 
@@ -91,7 +104,7 @@ We built Diligence Room natively on the **Gemini Enterprise Agent Platform (GEAP
 - **143 Audited Deal Events:** Preserves an immutable event ledger in Firestore.
 - **$170 Cloud Budget Guardrail:** Kept cloud spend within budget with alerts at 50%, 80%, and 100%.
 
----
+
 
 ## What we learned
 
@@ -100,24 +113,21 @@ We built Diligence Room natively on the **Gemini Enterprise Agent Platform (GEAP
 3. **Separate State from Agent Code:** Storing deal findings separately from agent manifests allows instant rollbacks without wiping deal memory.
 4. **Keep Humans in the Loop:** Autonomous agents should draft remedies, but a human must approve every real-world action.
 
----
 
-## What's next for Dilligence Room
+## What's next for Diligence Room
 
 1. **Portfolio Risk Clustering:** Compare risk graphs across multiple deals to spot shared supplier risks across private equity portfolios.
 2. **Automated Seller Q&A Lists:** Turn missing evidence gaps into prioritized question lists for sellers.
 3. **Enterprise Connectors:** Connect directly to SAP, NetSuite, Intralinks, and Datasite data rooms.
 4. **Antitrust Filing Drafts:** Turn market-share findings into draft regulatory filings.
 
----
 
-## Bonus Developer Contributions (+0.6 Points)
+## Project Extensions
 
-1. **Additional Google AI Model: Gemma 4 Ingestion Sentinel (+0.2 Bonus):** Integrated `gemma-4-26b-a4b-it` via Gemini Developer API for Tier-1 zero-shot prompt injection detection ([ingestion/sentinel.py](https://github.com/divagr18/diligence-room/blob/main/ingestion/sentinel.py), live proof in [docs/evidence/gemma-live.txt](https://github.com/divagr18/diligence-room/blob/main/docs/evidence/gemma-live.txt)).
-2. **Public Technical Blog Post (+0.2 Bonus):** Published live at [divagr.com/blog/zero-trust-agent-fleets](https://divagr.com/blog/zero-trust-agent-fleets) (draft in [docs/blog/draft.md](https://github.com/divagr18/diligence-room/blob/main/docs/blog/draft.md)), containing required hackathon-purpose language.
-3. **Public Social Media Promotion (+0.2 Bonus):** Shared publicly on X at [x.com/divagr1925/status/2094503795086725497](https://x.com/divagr1925/status/2094503795086725497) with `#AllThingsAgenticHackathon`.
+1. **Gemma 4 Ingestion Sentinel:** Integrated `gemma-4-26b-a4b-it` via the Gemini Developer API for Tier-1 prompt-injection detection ([ingestion/sentinel.py](https://github.com/divagr18/diligence-room/blob/main/ingestion/sentinel.py)).
+2. **Technical Build Article:** Published [Zero-Trust Agent Fleets](https://divagr.com/blog/zero-trust-agent-fleets).
+3. **Public Demo Update:** Shared the project and demo publicly on [X](https://x.com/divagr1925/status/2094503795086725497).
 
----
 
 ## Project Links & Live Endpoints
 
@@ -125,8 +135,7 @@ We built Diligence Room natively on the **Gemini Enterprise Agent Platform (GEAP
 - **Technical Blog Post:** [divagr.com/blog/zero-trust-agent-fleets](https://divagr.com/blog/zero-trust-agent-fleets)
 - **Public Social Post:** [X / Twitter (@divagr1925)](https://x.com/divagr1925/status/2094503795086725497)
 - **Hosted Dashboard (Web UI):** [diligence-room-dashboard...run.app](https://diligence-room-dashboard-378831539922.asia-south1.run.app)
-- **Hosted Agent Gateway:** [gateway...run.app](https://gateway-378831539922.asia-south1.run.app)
+- **Hosted Agent Gateway API Docs:** [gateway...run.app/docs](https://gateway-378831539922.asia-south1.run.app/docs)
 - **Deployed Agent Runtime:** `projects/378831539922/locations/us-central1/reasoningEngines/7141202128323739648`
-- **Cloud Trace Sample:** [Cloud Trace `d77658309933cf2ff4a5d336e9960a64`](https://console.cloud.google.com/traces/list?project=diligence-room-live&tid=d77658309933cf2ff4a5d336e9960a64)
-- **Architecture Diagram:** [High-Res Vector SVG](https://raw.githubusercontent.com/divagr18/diligence-room/main/docs/diagram/architecture.svg) (PNG: [High-Res PNG](https://raw.githubusercontent.com/divagr18/diligence-room/main/docs/diagram/architecture.png))
+- **Architecture Diagram:** [High-Resolution PNG](https://raw.githubusercontent.com/divagr18/diligence-room/main/docs/diagram/architecture.png)
 - **Code Repository:** [github.com/divagr18/diligence-room](https://github.com/divagr18/diligence-room)

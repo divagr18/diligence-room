@@ -1,8 +1,8 @@
 """Project Falcon deal-workspace provisioning (BUILD_PLAN D2-M6).
 
-Writes the deal document per docs/firestore_layout.md. The live wiring
-(bucket -> ingestion -> agents) arrives on later days; this module owns the
-Firestore workspace record and its idempotency guard.
+Writes the canonical Firestore deal document. The live wiring from bucket to
+ingestion to agents is separate; this module owns the workspace record and its
+idempotency guard.
 """
 
 from __future__ import annotations

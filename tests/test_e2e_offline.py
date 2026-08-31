@@ -10,8 +10,7 @@ Proves the Day-2 chain without any live GCP call:
         -> deal workspace document readable
         -> registry API serves the seeded 8-agent fleet
 
-When GCP revives, the live equivalent is the runbook in
-docs/deal_provisioning.md.
+The same interfaces have guarded live equivalents for GCP deployment.
 """
 
 from __future__ import annotations

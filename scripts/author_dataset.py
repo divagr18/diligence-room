@@ -19,7 +19,7 @@ Produces the committed dataset artifacts carrying the keystone demo facts:
 
 All writers are deterministic (pinned metadata timestamps, no formulas, no
 runtime clock reads) so regeneration yields identical content; the tests in
-tests/test_dataset_artifacts.py pin the planted facts.
+evals/golden_set.py and tests/test_golden_set.py pin the planted facts.
 """
 
 from __future__ import annotations

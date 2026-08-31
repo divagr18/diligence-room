@@ -5,7 +5,7 @@ finding fact from its seeded document using a genuine verbatim span, then
 writes it through the same evidence-gated finding-create path the live model
 uses (``agents/tools/finding_create.py``). This module is the offline proof
 that the write path produces one gated finding per workstream; the live path
-(scripts/run_d6_live_fleet.py) replaces the extractor with the real Flash
+The live fleet replaces the extractor with the real Flash
 agent while keeping the identical evidence gate and partition write.
 """
 

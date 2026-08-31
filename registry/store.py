@@ -1,8 +1,8 @@
 """Firestore-backed Agent Registry store (BUILD_PLAN D2-M3).
 
-Layout: ``agents/{agent_id}`` (manifests),
-``agents/{agent_id}/versions/{version}`` (versions) — top-level ``agents``
-collection, see docs/firestore_layout.md for the path-parity rationale.
+Layout: ``agents/{agent_id}`` (manifests) and
+``agents/{agent_id}/versions/{version}`` (versions), both under the top-level
+``agents`` collection.
 Tuples serialize as lists; datetimes pass through as native Firestore Timestamps.
 """
 

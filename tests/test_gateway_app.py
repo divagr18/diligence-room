@@ -165,3 +165,17 @@ class TestDecideEndpoint:
             },
         )
         assert response.status_code == 404
+
+
+class TestIndex:
+    """The gateway URL is published, so its root must not 404."""
+
+    def test_root_names_the_service_and_its_routes(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from gateway.app import create_app
+
+        body = TestClient(create_app()).get("/").json()
+        assert "Agent Gateway" in body["service"]
+        assert "POST /gateway/decide" in body["endpoints"]
+        assert body["repository"].startswith("https://github.com/")

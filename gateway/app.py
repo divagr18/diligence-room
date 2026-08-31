@@ -75,6 +75,32 @@ def _healthz() -> dict[str, str]:
     return {"status": "ok", "service": "gateway"}
 
 
+def _index() -> dict[str, object]:
+    """Name the service and its routes at the root.
+
+    The gateway URL is published in the README and on the submission form, so
+    the root cannot be a bare 404: someone following the link should learn what
+    the service is and where to look next.
+    """
+    return {
+        "service": "Diligence Room - Agent Gateway",
+        "description": (
+            "Deny-by-default policy edge for cross-workstream agent reads. Every "
+            "request is evaluated against a Firestore policy store; absent an "
+            "allow rule the answer is deny, and the decision is logged."
+        ),
+        "endpoints": {
+            "POST /gateway/decide": "evaluate one cross-workstream access request",
+            "GET /agents/{agent_id}": "A2A agent card for a published agent",
+            "GET /whoami": "echo the caller identity header the edge saw",
+            "GET /health": "liveness",
+            "GET /docs": "OpenAPI browser",
+        },
+        "dashboard": ("https://diligence-room-dashboard-378831539922.asia-south1.run.app"),
+        "repository": "https://github.com/divagr18/diligence-room",
+    }
+
+
 def _whoami(request: Request) -> dict[str, str]:
     caller: str = getattr(request.state, "caller_identity", _ANONYMOUS)
     return {"caller": caller}
@@ -137,6 +163,7 @@ def create_app(
     """Build the gateway FastAPI app; policy route only when a client is wired."""
     app = fastapi.FastAPI(title="Diligence Room - Agent Gateway")
     app.add_middleware(_CallerIdentityMiddleware)
+    app.add_api_route("/", _index, methods=["GET"])
     app.add_api_route("/healthz", _healthz, methods=["GET"])
     # /health alias: Google Frontend answers /healthz itself on Cloud Run
     # (returns an edge 404 before the container sees it), so the
