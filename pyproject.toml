@@ -102,6 +102,9 @@ module = [
     "docx.*",
     "PIL.*",
     "opentelemetry.exporter.cloud_trace.*",
+    # The video recorders run under `uv run --with playwright`, so it is
+    # deliberately not a project dependency and ships no stubs here.
+    "playwright.*",
 ]
 ignore_missing_imports = true
 

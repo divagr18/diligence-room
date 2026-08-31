@@ -51,6 +51,7 @@ from dashboard.api.models import (
     AgentOut,
     ApproveRequest,
     DealBundle,
+    DocumentOut,
     EvidenceItem,
     FindingDetail,
     FindingListItem,
@@ -269,6 +270,13 @@ def create_app(
             except Exception:  # noqa: BLE001 - the demo shell must stay green
                 pass
         return data.build_agents(registry_manifests)
+
+    # Registered before /api/documents/{document_id} or FastAPI matches the
+    # literal path against the path parameter and tries to serve a file
+    # called "documents".
+    @app.get("/api/documents", response_model=list[DocumentOut])
+    def document_list() -> list[DocumentOut]:
+        return data.build_documents(live_client)
 
     @app.get("/api/documents/{document_id}")
     def document_file(document_id: str) -> FileResponse:

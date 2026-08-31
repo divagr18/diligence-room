@@ -154,6 +154,51 @@ class TestRegistry:
         assert all(a["model_id"] == "gemini-3.5-flash" for a in agents)
 
 
+class TestDocumentList:
+    """GET /api/documents - the data-room listing behind the Documents tab."""
+
+    def test_lists_every_data_room_document(self) -> None:
+        docs = _CLIENT.get("/api/documents").json()
+        ids = {d["document_id"] for d in docs}
+        assert "contract_meridian_logistics.pdf" in ids
+        assert "financials_fy27.xlsx" in ids
+        # The plan describing the data room is not itself a document, and
+        # neither is the .gitkeep that holds the directory in git.
+        assert "DATASET_PLAN.md" not in ids
+        assert not any(i.startswith(".") for i in ids)
+
+    def test_literal_path_wins_over_the_document_id_route(self) -> None:
+        """Registration order matters: /api/documents must not resolve as an id."""
+        res = _CLIENT.get("/api/documents")
+        assert res.status_code == 200
+        assert isinstance(res.json(), list)
+
+    def test_routing_matches_the_ingestion_classifier(self) -> None:
+        docs = {d["document_id"]: d for d in _CLIENT.get("/api/documents").json()}
+        contract = docs["contract_meridian_logistics.pdf"]
+        assert contract["workstream"] == "legal"
+        assert contract["doc_type"] == "contract"
+        assert 0.0 < contract["confidence"] <= 1.0
+
+    def test_format_and_page_counts_are_real(self) -> None:
+        docs = {d["document_id"]: d for d in _CLIENT.get("/api/documents").json()}
+        contract = docs["contract_meridian_logistics.pdf"]
+        assert contract["format"] == "native_pdf"
+        assert contract["page_count"] == 2
+        assert contract["size_bytes"] > 0
+        assert len(contract["checksum"]) == 64
+        assert docs["financials_fy27.xlsx"]["format"] == "xlsx"
+
+    def test_every_row_carries_a_security_status(self) -> None:
+        docs = _CLIENT.get("/api/documents").json()
+        assert docs
+        assert all(d["security_status"] in {"cleared", "quarantined"} for d in docs)
+
+    def test_listed_documents_are_all_servable(self) -> None:
+        for doc in _CLIENT.get("/api/documents").json():
+            assert _CLIENT.get(f"/api/documents/{doc['document_id']}").status_code == 200
+
+
 class TestDocuments:
     def test_serve_pdf_returns_pdf_media_type(self) -> None:
         res = _CLIENT.get("/api/documents/contract_meridian_logistics.pdf")

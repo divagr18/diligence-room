@@ -9,9 +9,13 @@ text is guaranteed to resolve.
 
 from __future__ import annotations
 
+import hashlib
 import re
+from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
+from ingestion.classifier import FakeClassifier
 from ingestion.formats import detect_format
 from ingestion.models import FormatKind
 
@@ -105,3 +109,86 @@ def locate_evidence(document_id: str, span: str) -> dict[str, object] | None:
     if info.kind is FormatKind.XLSX:
         return _locate_xlsx(blob, span)
     return {"kind": info.kind.value, "page": None, "page_count": None}
+
+
+# --------------------------------------------------------------------------
+# Data-room listing
+# --------------------------------------------------------------------------
+
+# Everything in the data room is a document except the plan that describes it.
+_NOT_A_DOCUMENT = {"DATASET_PLAN.md"}
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentSummary:
+    """One data-room file, as the Documents view needs it."""
+
+    document_id: str
+    format: str
+    mime: str
+    needs_ocr: bool
+    size_bytes: int
+    page_count: int | None
+    checksum: str
+    doc_type: str
+    workstream: str | None
+    confidence: float
+
+
+def _extract_text(blob: bytes, kind: FormatKind) -> str:
+    """Best-effort text for routing. A parser failure costs a label, not the row."""
+    try:
+        if kind in (FormatKind.NATIVE_PDF, FormatKind.SCANNED_PDF):
+            return "\n".join(_pdf_text_pages(blob))
+        if kind is FormatKind.XLSX:
+            return "\n".join("\t".join(row) for _sheet, rows in _xlsx_rows(blob) for row in rows)
+    except Exception:  # noqa: BLE001 - an unreadable file still belongs in the list
+        return ""
+    return ""
+
+
+def _page_count(blob: bytes, kind: FormatKind) -> int | None:
+    try:
+        if kind in (FormatKind.NATIVE_PDF, FormatKind.SCANNED_PDF):
+            return len(_pdf_text_pages(blob))
+        if kind is FormatKind.XLSX:
+            return len(_xlsx_rows(blob))
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
+@lru_cache(maxsize=1)
+def list_documents() -> tuple[DocumentSummary, ...]:
+    """Every file in the data room, with format, routing and page count.
+
+    Cached: the data room is static per deployment, and building the list parses
+    every PDF and workbook. The routing label comes from the same deterministic
+    classifier the ingestion pipeline uses, so the workstream shown here is the
+    one a document would actually be routed to rather than a second opinion.
+    """
+    if not DATA_ROOM.is_dir():
+        return ()
+    classifier = FakeClassifier()
+    summaries: list[DocumentSummary] = []
+    for path in sorted(DATA_ROOM.iterdir()):
+        if not path.is_file() or path.name.startswith(".") or path.name in _NOT_A_DOCUMENT:
+            continue
+        blob = path.read_bytes()
+        info = detect_format(blob, path.name)
+        decision = classifier.classify(path.name, _extract_text(blob, info.kind), None)
+        summaries.append(
+            DocumentSummary(
+                document_id=path.name,
+                format=info.kind.value,
+                mime=info.mime,
+                needs_ocr=info.needs_ocr,
+                size_bytes=len(blob),
+                page_count=_page_count(blob, info.kind),
+                checksum=hashlib.sha256(blob).hexdigest(),
+                doc_type=decision.doc_type,
+                workstream=decision.workstream,
+                confidence=decision.confidence,
+            )
+        )
+    return tuple(summaries)

@@ -10,6 +10,7 @@ const ROUTES = [
   ["overview", "/"],
   ["findings", "/findings"],
   ["finding-detail", "/findings/SYN-001"],
+  ["documents", "/documents"],
   ["security", "/security"],
   ["registry", "/registry"],
 ];

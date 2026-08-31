@@ -1,5 +1,6 @@
 import { NavLink, Route, Routes } from "react-router-dom";
-import { FileSearch, LayoutDashboard, ShieldCheck, Vault } from "lucide-react";
+import { FileSearch, FileStack, LayoutDashboard, ShieldCheck, Vault } from "lucide-react";
+import Documents from "./views/Documents";
 import Findings from "./views/Findings";
 import FindingDetail from "./views/FindingDetail";
 import Overview from "./views/Overview";
@@ -9,6 +10,7 @@ import Security from "./views/Security";
 const NAV = [
   { to: "/", label: "Overview", icon: LayoutDashboard, end: true },
   { to: "/findings", label: "Findings", icon: FileSearch, end: false },
+  { to: "/documents", label: "Documents", icon: FileStack, end: false },
   { to: "/security", label: "Security", icon: ShieldCheck, end: false },
   { to: "/registry", label: "Registry", icon: Vault, end: false },
 ];
@@ -88,7 +90,8 @@ function Shell() {
             <Route path="/" element={<Overview />} />
             <Route path="/findings" element={<Findings />} />
             <Route path="/findings/:findingId" element={<FindingDetail />} />
-            <Route path="/security" element={<Security />} />
+            <Route path="/documents" element={<Documents />} />
+        <Route path="/security" element={<Security />} />
             <Route path="/registry" element={<Registry />} />
           </Routes>
         </div>

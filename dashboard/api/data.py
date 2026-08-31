@@ -9,15 +9,18 @@ repository; until then it is the honest, deterministic stand-in (DESIGN.md §9).
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Sequence
 
 from google.cloud import firestore
 
 from armor.quarantine import QuarantineStore
+from dashboard.api import documents
 from dashboard.api.models import (
     AgentOut,
     DealBundle,
     DealSummary,
+    DocumentOut,
     EvidenceItem,
     FindingDetail,
     FindingGraph,
@@ -829,6 +832,39 @@ def build_finding_detail(finding_id: str) -> FindingDetail | None:
             graph = _SYNTHESIS_GRAPH if f.finding_id == "SYN-001" else _default_graph(f)
             return f.model_copy(update={"graph": graph})
     return None
+
+
+def build_documents(client: firestore.Client | None = None) -> list[DocumentOut]:
+    """Every data-room document, with its routing and whether it was quarantined.
+
+    The list itself is the same either way - the data room is the data room. The
+    client only decides where quarantine status comes from: the live store when
+    one is wired, the authored demo set otherwise. A read failure degrades to
+    "cleared" rather than 500-ing the view.
+    """
+    quarantined: set[str] = {item.document_id for item in _QUARANTINE}
+    if client is not None:
+        # A quarantine read failure costs the status column, not the page.
+        with contextlib.suppress(Exception):
+            quarantined = {
+                record.document_id for record in QuarantineStore(client).list_quarantined(DEAL_ID)
+            }
+    return [
+        DocumentOut(
+            document_id=doc.document_id,
+            format=doc.format,
+            mime=doc.mime,
+            needs_ocr=doc.needs_ocr,
+            size_bytes=doc.size_bytes,
+            page_count=doc.page_count,
+            checksum=doc.checksum,
+            doc_type=doc.doc_type,
+            workstream=doc.workstream,
+            confidence=doc.confidence,
+            security_status="quarantined" if doc.document_id in quarantined else "cleared",
+        )
+        for doc in documents.list_documents()
+    ]
 
 
 def build_security_bundle(client: firestore.Client | None = None) -> SecurityBundle:

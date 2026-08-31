@@ -158,6 +158,20 @@ class AgentOut(BaseModel):
     capabilities: list[str]
 
 
+class DocumentOut(BaseModel):
+    document_id: str
+    format: str
+    mime: str
+    needs_ocr: bool
+    size_bytes: int
+    page_count: int | None
+    checksum: str
+    doc_type: str
+    workstream: str | None
+    confidence: float
+    security_status: str
+
+
 class DealBundle(BaseModel):
     summary: DealSummary
     workstreams: list[WorkstreamProgress]

@@ -132,6 +132,20 @@ export interface SecurityBundle {
   total_blocked: number;
 }
 
+export interface DocumentOut {
+  document_id: string;
+  format: string;
+  mime: string;
+  needs_ocr: boolean;
+  size_bytes: number;
+  page_count: number | null;
+  checksum: string;
+  doc_type: string;
+  workstream: string | null;
+  confidence: number;
+  security_status: string;
+}
+
 export interface AgentOut {
   agent_id: string;
   name: string;
@@ -223,6 +237,7 @@ export const api = {
   finding: (id: string) => fetchJson<FindingDetail>(`/api/findings/${encodeURIComponent(id)}`),
   security: () => fetchJson<SecurityBundle>("/api/security"),
   registry: () => fetchJson<AgentOut[]>("/api/registry"),
+  documents: () => fetchJson<DocumentOut[]>("/api/documents"),
   locate: (documentId: string, span: string) =>
     fetchJson<DocumentLocator>(
       `/api/documents/${encodeURIComponent(documentId)}/locate?span=${encodeURIComponent(span)}`,

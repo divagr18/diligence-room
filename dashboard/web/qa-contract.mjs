@@ -6,7 +6,7 @@
 import { chromium } from "playwright";
 
 const BASE = "http://127.0.0.1:5173";
-const ROUTES = ["/", "/findings", "/findings/SYN-001", "/security", "/registry"];
+const ROUTES = ["/", "/findings", "/findings/SYN-001", "/documents", "/security", "/registry"];
 const VIEWPORTS = [
   ["1280", 1280, 800],
   ["768", 768, 1024],
