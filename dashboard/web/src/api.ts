@@ -256,6 +256,13 @@ export const api = {
     postJson<NegotiationDraft>(`/api/negotiation/${encodeURIComponent(draftId)}/send`),
 };
 
+/* Quarantined fixtures are named by their relative path in the demo dataset
+   and as rt-{nonce}__{flattened} in a live run. Flattening the separator keeps
+   the id inside a single path segment, which is what the route expects. */
+export function quarantinedDocumentUrl(documentId: string): string {
+  return documentUrl(documentId.replace(/\//g, "_"));
+}
+
 /* Served-file URL for the document viewer (GET /api/documents/{id}). */
 export function documentUrl(documentId: string): string {
   return `/api/documents/${encodeURIComponent(documentId)}`;

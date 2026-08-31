@@ -280,7 +280,13 @@ def create_app(
 
     @app.get("/api/documents/{document_id}")
     def document_file(document_id: str) -> FileResponse:
-        path = documents.resolve_document_path(document_id)
+        # Quarantined payloads never reached the data room, so they only
+        # resolve through the red-team fixture index. Serving them is the
+        # point: the Security view links here so a reviewer can read the
+        # attack that was blocked instead of taking the verdict on trust.
+        path = documents.resolve_document_path(document_id) or documents.resolve_quarantined_path(
+            document_id
+        )
         if path is None:
             raise HTTPException(status_code=404, detail=f"document {document_id!r} not found")
         return FileResponse(path)

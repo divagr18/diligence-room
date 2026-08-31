@@ -21,6 +21,7 @@ from ingestion.models import FormatKind
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_ROOM = _REPO_ROOT / "data" / "vantage_robotics"
+ATTACKS_ROOT = _REPO_ROOT / "redteam" / "attacks"
 
 _ws = re.compile(r"\s+")
 
@@ -42,6 +43,43 @@ def resolve_document_path(document_id: str) -> Path | None:
     if DATA_ROOM.resolve() not in candidate.parents and candidate.parent != DATA_ROOM.resolve():
         return None
     return candidate if candidate.is_file() else None
+
+
+@lru_cache(maxsize=1)
+def _attack_index() -> dict[str, Path]:
+    """Map every red-team fixture's flattened name back to its file.
+
+    ``redteam.runner`` registers each attack as ``rt-{nonce}__{path}`` with the
+    path separators flattened to underscores, which is not reversible by string
+    surgery: ``injection_obfuscated_a.pdf`` could be ``injection/obfuscated/a``
+    or ``injection/obfuscated_a``. Indexing the real files by the same
+    flattening the runner applies makes the lookup exact, and because it is a
+    dictionary hit against a prebuilt set of known paths there is no traversal
+    surface at all.
+    """
+    if not ATTACKS_ROOT.is_dir():
+        return {}
+    root = ATTACKS_ROOT.resolve()
+    return {
+        path.relative_to(root).as_posix().replace("/", "_"): path
+        for path in root.rglob("*")
+        if path.is_file() and not path.name.startswith(".")
+    }
+
+
+def resolve_quarantined_path(document_id: str) -> Path | None:
+    """Resolve a quarantined red-team payload to its file, or None.
+
+    Quarantined documents never entered the data room - that is the point of
+    quarantining them - so they cannot resolve through ``resolve_document_path``.
+
+    Two id shapes reach here. A live run registers ``rt-{nonce}__{flattened}``;
+    the authored demo set names fixtures by their plain relative path. Both are
+    reduced to the index key, so the route stays a single path segment and never
+    needs a greedy ``:path`` converter that would also swallow ``/locate``.
+    """
+    key = document_id.split("__", 1)[1] if "__" in document_id else document_id
+    return _attack_index().get(key.replace("/", "_"))
 
 
 def _pdf_text_pages(blob: bytes) -> list[str]:

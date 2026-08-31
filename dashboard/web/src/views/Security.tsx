@@ -1,4 +1,4 @@
-import { api, fmtTime, useAsync } from "../api";
+import { api, fmtTime, quarantinedDocumentUrl, useAsync } from "../api";
 import {
   ErrorState,
   LayerPill,
@@ -72,7 +72,18 @@ export default function Security() {
             <tbody>
               {data.quarantined.map((q) => (
                 <tr key={q.document_id + q.ts} className="border-b border-line last:border-b-0 hover:bg-card2">
-                  <td className="px-4 py-3 font-mono text-[12px] text-ink1">{q.document_id}</td>
+                  <td className="px-4 py-3">
+                    {/* The blocked payload is openable: a reviewer should be
+                        able to read the attack rather than trust the verdict. */}
+                    <a
+                      href={quarantinedDocumentUrl(q.document_id)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-mono text-[12px] text-ink1 underline decoration-line3 underline-offset-2 hover:decoration-ink3"
+                    >
+                      {q.document_id}
+                    </a>
+                  </td>
                   <td className="px-4 py-3">
                     <LayerPill layer={q.layer} />
                   </td>

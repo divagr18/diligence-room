@@ -154,6 +154,38 @@ class TestRegistry:
         assert all(a["model_id"] == "gemini-3.5-flash" for a in agents)
 
 
+class TestQuarantinedPayloads:
+    """Quarantined red-team payloads are openable from the Security view."""
+
+    _ID = "rt-11b260f6__injection_direct_a.pdf"
+
+    def test_quarantined_payload_is_servable(self) -> None:
+        res = _CLIENT.get(f"/api/documents/{self._ID}")
+        assert res.status_code == 200
+        assert res.headers["content-type"].startswith("application/pdf")
+
+    def test_nested_fixture_path_resolves(self) -> None:
+        """``injection/obfuscated/a.pdf`` flattens ambiguously; the index wins."""
+        res = _CLIENT.get("/api/documents/rt-11b260f6__injection_obfuscated_a.pdf")
+        assert res.status_code == 200
+
+    def test_every_quarantined_document_opens(self) -> None:
+        quarantined = _CLIENT.get("/api/security").json()["quarantined"]
+        assert quarantined
+        for item in quarantined:
+            # The UI flattens the separator so the id stays one path segment.
+            sent = item["document_id"].replace("/", "_")
+            got = _CLIENT.get(f"/api/documents/{sent}").status_code
+            assert got == 200, f"{item['document_id']} returned {got}"
+
+    def test_traversal_through_the_fixture_prefix_fails_closed(self) -> None:
+        assert _CLIENT.get("/api/documents/rt-x__../../pyproject.toml").status_code == 404
+        assert _CLIENT.get("/api/documents/rt-x__..%2F..%2Fpyproject.toml").status_code == 404
+
+    def test_unknown_fixture_is_404_not_500(self) -> None:
+        assert _CLIENT.get("/api/documents/rt-x__nope.pdf").status_code == 404
+
+
 class TestDocumentList:
     """GET /api/documents - the data-room listing behind the Documents tab."""
 
